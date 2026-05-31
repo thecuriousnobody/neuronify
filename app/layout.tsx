@@ -14,6 +14,11 @@ export const metadata: Metadata = {
     siteName: 'Neuronify',
     type: 'website',
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: "Neuronify — Your city's nervous system",
+    description: 'Community signal in. A costed plan out.',
+  },
 };
 
 export const viewport: Viewport = {
