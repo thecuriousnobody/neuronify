@@ -75,6 +75,26 @@ export default async function BriefPage({
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{brief.markdown}</ReactMarkdown>
       </article>
 
+      {brief.actions && (
+        <article className={`${styles.prose} ${styles.actions}`}>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{brief.actions}</ReactMarkdown>
+          {brief.sources.length > 0 && (
+            <div className={styles.sources}>
+              <div className={styles.sourcesLabel}>Sources — grounded by live web search</div>
+              <ol>
+                {brief.sources.map((s, i) => (
+                  <li key={i}>
+                    <a href={s.link} target="_blank" rel="noopener noreferrer">
+                      {s.title || s.link}
+                    </a>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+        </article>
+      )}
+
       <div className={styles.foot}>
         NEURONIFY · COMMUNITY SIGNAL · PEORIA, ILLINOIS · NOT A FORMAL ENGINEERING QUOTE
       </div>

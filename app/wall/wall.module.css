@@ -19,10 +19,10 @@
 .headline{max-width:620px}
 .eyebrow{font-family:'Geist Mono',monospace;font-size:.72rem;letter-spacing:.3em;
   text-transform:uppercase;color:var(--cyan);margin-bottom:20px}
-.count{font-family:'Instrument Serif',serif;line-height:.92;letter-spacing:-.02em}
+.count{font-family:'Syne',sans-serif;font-weight:700;line-height:.92;letter-spacing:-.02em}
 .countNum{display:block;font-size:clamp(5rem,13vw,11rem);color:var(--text)}
 .countLabel{display:block;font-size:clamp(1.6rem,3vw,2.6rem);color:var(--muted)}
-.countLabel .it{font-style:italic;color:var(--cyan-bright)}
+.countLabel .it{color:var(--cyan-bright);font-weight:800}
 .city{font-family:'Geist Mono',monospace;font-size:.78rem;letter-spacing:.24em;
   text-transform:uppercase;color:var(--muted-2);margin-top:24px}
 

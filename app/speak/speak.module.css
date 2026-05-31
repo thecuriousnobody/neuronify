@@ -20,10 +20,10 @@
   color:var(--cyan);margin-bottom:22px;
 }
 .prompt{
-  font-family:'Instrument Serif',serif;font-weight:400;
+  font-family:'Syne',sans-serif;font-weight:600;
   font-size:clamp(2rem,7vw,3rem);line-height:1.08;letter-spacing:-.01em;margin-bottom:14px;
 }
-.prompt .it{font-style:italic;color:var(--cyan-bright)}
+.prompt .it{color:var(--cyan-bright);font-weight:800}
 .sub{color:var(--muted);font-weight:300;margin-bottom:34px;font-size:1rem}
 .field{
   width:100%;background:var(--card);border:1px solid var(--line);border-radius:20px;
@@ -63,8 +63,8 @@
   box-shadow:0 0 40px 8px rgba(56,189,248,.4);animation:breathe 2.6s ease-in-out infinite;
 }
 @keyframes breathe{0%,100%{opacity:.7;transform:scale(.9)}50%{opacity:1;transform:scale(1.08)}}
-.doneTitle{font-family:'Instrument Serif',serif;font-size:2rem}
-.doneTitle .it{font-style:italic;color:var(--cyan-bright)}
+.doneTitle{font-family:'Syne',sans-serif;font-weight:600;font-size:2rem}
+.doneTitle .it{color:var(--cyan-bright);font-weight:800}
 .doneSummary{
   color:var(--muted);font-weight:300;max-width:420px;
   border:1px solid var(--line);border-radius:14px;padding:16px 18px;background:var(--card);

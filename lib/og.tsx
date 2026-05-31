@@ -4,19 +4,23 @@ export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 export const alt = "Neuronify — your city's nervous system";
 
-// Instrument Serif gives the headline its brand character. Fetched at render
-// time from the Google Fonts repo; if it ever fails we fall back to a generic
-// serif so the image still renders (never throws).
-async function loadSerif(): Promise<ArrayBuffer | null> {
+// Display font for the headline. Prefers Syne (the site's face) as a static
+// woff from Fontsource — Syne ships only as a variable TTF on Google, which
+// the image renderer can't parse. Always falls back to a guaranteed font so
+// the renderer never gets an empty font set (which would throw).
+async function loadDisplayFont(): Promise<{ name: string; data: ArrayBuffer; weight: 400 | 700 }> {
   try {
-    const res = await fetch(
-      'https://raw.githubusercontent.com/google/fonts/main/ofl/instrumentserif/InstrumentSerif-Regular.ttf',
+    const r = await fetch(
+      'https://cdn.jsdelivr.net/npm/@fontsource/syne@latest/files/syne-latin-700-normal.woff',
     );
-    if (res.ok) return await res.arrayBuffer();
+    if (r.ok) return { name: 'Syne', data: await r.arrayBuffer(), weight: 700 };
   } catch {
-    /* fall through to generic serif */
+    /* fall back below */
   }
-  return null;
+  const fb = await fetch(
+    'https://raw.githubusercontent.com/google/fonts/main/ofl/instrumentserif/InstrumentSerif-Regular.ttf',
+  );
+  return { name: 'Instrument Serif', data: await fb.arrayBuffer(), weight: 400 };
 }
 
 // A scattered neural field — faint nodes plus a couple of bright ones.
@@ -32,7 +36,8 @@ const NODES: { x: number; y: number; r: number; o: number; bright?: boolean }[] 
 ];
 
 export default async function OgImage() {
-  const serif = await loadSerif();
+  const font = await loadDisplayFont();
+  const displayFamily = `"${font.name}", sans-serif`;
 
   return new ImageResponse(
     (
@@ -112,8 +117,9 @@ export default async function OgImage() {
             style={{
               display: 'flex',
               flexDirection: 'column',
-              fontFamily: '"Instrument Serif", serif',
-              lineHeight: 1.0,
+              fontFamily: displayFamily,
+              lineHeight: 1.04,
+              letterSpacing: -1.5,
             }}
           >
             <div style={{ display: 'flex', fontSize: 92, color: '#E8ECF3' }}>Every resident,</div>
@@ -146,9 +152,7 @@ export default async function OgImage() {
     ),
     {
       ...size,
-      fonts: serif
-        ? [{ name: 'Instrument Serif', data: serif, style: 'normal', weight: 400 }]
-        : [],
+      fonts: [{ name: font.name, data: font.data, style: 'normal' as const, weight: font.weight }],
     },
   );
 }

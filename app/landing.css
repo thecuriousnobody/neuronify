@@ -32,9 +32,9 @@ nav.scrolled{border-bottom:1px solid var(--line)}
   text-transform:uppercase;color:var(--cyan);margin-bottom:30px;
   display:flex;align-items:center;gap:14px;opacity:0;animation:rise .9s .1s forwards}
 .eyebrow::before{content:"";width:34px;height:1px;background:linear-gradient(90deg,var(--cyan),transparent)}
-h1{font-family:'Instrument Serif',serif;font-weight:400;
+h1{font-family:'Syne',sans-serif;font-weight:600;
   font-size:clamp(3.2rem,8.5vw,6.4rem);line-height:.98;letter-spacing:-.015em;margin-bottom:30px}
-h1 .it{font-style:italic;color:var(--cyan-bright)}
+h1 .it{color:var(--cyan-bright);font-weight:800}
 h1 .l1{display:block;opacity:0;animation:rise 1s .22s forwards}
 h1 .l2{display:block;opacity:0;animation:rise 1s .38s forwards}
 .lede{font-size:clamp(1.05rem,1.7vw,1.28rem);color:var(--muted);max-width:540px;
@@ -58,9 +58,9 @@ section{position:relative;z-index:2}
 .pad{padding:130px 0}
 .sec-eyebrow{font-family:'Geist Mono',monospace;font-size:.72rem;letter-spacing:.3em;
   text-transform:uppercase;color:var(--violet);margin-bottom:22px}
-.sec-title{font-family:'Instrument Serif',serif;font-weight:400;
+.sec-title{font-family:'Syne',sans-serif;font-weight:600;
   font-size:clamp(2.2rem,4.4vw,3.4rem);line-height:1.05;letter-spacing:-.01em;max-width:640px}
-.sec-title .it{font-style:italic;color:var(--cyan-bright)}
+.sec-title .it{color:var(--cyan-bright);font-weight:800}
 
 /* how it works */
 .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:26px;margin-top:70px}
@@ -74,14 +74,14 @@ section{position:relative;z-index:2}
   background:radial-gradient(circle at 50% 40%,rgba(56,189,248,.9),rgba(56,189,248,.15) 60%,transparent 72%)}
 .step .node::after{content:"";position:absolute;inset:0;border-radius:50%;
   box-shadow:0 0 22px 4px rgba(56,189,248,.35)}
-.step h3{font-family:'Instrument Serif',serif;font-weight:400;font-size:1.7rem;margin-bottom:12px}
+.step h3{font-family:'Syne',sans-serif;font-weight:600;font-size:1.7rem;margin-bottom:12px}
 .step p{color:var(--muted);font-size:.97rem;font-weight:300}
 
 /* the brief readout */
 .brief-grid{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;margin-top:30px}
 @media(max-width:900px){.brief-grid{grid-template-columns:1fr;gap:44px}}
 .brief-copy p{color:var(--muted);font-weight:300;margin-top:22px;max-width:430px}
-.brief-copy .pull{font-family:'Instrument Serif',serif;font-style:italic;
+.brief-copy .pull{font-family:'Syne',sans-serif;font-weight:600;
   font-size:1.5rem;color:var(--text);margin-top:30px;line-height:1.3}
 .console{background:#070B14;border:1px solid var(--line);border-radius:16px;overflow:hidden;
   box-shadow:0 40px 80px -30px rgba(0,0,0,.7)}
@@ -107,16 +107,16 @@ section{position:relative;z-index:2}
 /* origin strip */
 .origin{border-top:1px solid var(--line);border-bottom:1px solid var(--line);
   padding:80px 0;text-align:center}
-.origin .big{font-family:'Instrument Serif',serif;font-size:clamp(1.8rem,3.6vw,2.7rem);line-height:1.2}
-.origin .big .it{font-style:italic;color:var(--cyan-bright)}
+.origin .big{font-family:'Syne',sans-serif;font-weight:600;font-size:clamp(1.8rem,3.6vw,2.7rem);line-height:1.2}
+.origin .big .it{color:var(--cyan-bright);font-weight:800}
 .origin .sub{font-family:'Geist Mono',monospace;font-size:.74rem;letter-spacing:.26em;
   text-transform:uppercase;color:var(--muted-2);margin-top:20px}
 
 /* final cta */
 .final{text-align:center;padding:150px 0 120px}
-.final h2{font-family:'Instrument Serif',serif;font-weight:400;
+.final h2{font-family:'Syne',sans-serif;font-weight:600;
   font-size:clamp(2.8rem,6.5vw,5rem);line-height:1;letter-spacing:-.02em}
-.final h2 .it{font-style:italic;color:var(--cyan-bright)}
+.final h2 .it{color:var(--cyan-bright);font-weight:800}
 .signup{display:flex;gap:10px;max-width:430px;margin:46px auto 0;flex-wrap:wrap;justify-content:center}
 .signup input{flex:1;min-width:220px;background:var(--card);border:1px solid var(--line);
   color:var(--text);padding:15px 20px;border-radius:100px;font-family:'Geist',sans-serif;font-size:.95rem;outline:none;

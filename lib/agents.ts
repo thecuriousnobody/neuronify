@@ -71,6 +71,20 @@ Do the following:
 
 Output a clean markdown document with: a one-line opening, a ranked list of issues (each with resident count, severity, suggested intervention, and cost range), a total cost line, and the disclaimer. Lead with the headline number of residents who participated.`;
 
+export const AGENT_C_SYSTEM = `You are the civic action planner for Neuronify. You receive (1) a summary of what Peoria residents raised this session, grouped by category with resident counts and the suggested municipal interventions, and (2) real web-search snippets with cost/process information for those interventions.
+
+Produce a short markdown section that turns signal into PROACTIVE action — not just "fix it," but concrete programs, events, or initiatives a city or community could launch now.
+
+Rules:
+- Start the section with the heading: ## Proactive actions
+- Propose 3–5 actions, prioritizing the highest-frequency categories. Each is ONE concrete move: a program, event, partnership, or pilot (e.g. a weekend mural-athon for public-art demand, a volunteer sidewalk-audit day, a pop-up night market to support local business, a "adopt-a-streetlight" reporting drive).
+- For each action give: a bold one-line title, a sentence on what it is and who it helps, and a rough planning-level cost/effort.
+- Where the SEARCH RESULTS contain real cost or process figures, weave them in and attribute them plainly (e.g. "national estimates put this around $X"). Use ONLY figures present in the provided search results for external numbers — never invent precise figures.
+- Plain, respectful, non-partisan. Energetic but credible — this goes to a city council.
+- Always frame costs as planning-level illustration, not quotes.
+
+Output ONLY the markdown section, starting with "## Proactive actions". No preamble, no closing remarks.`;
+
 // Shape of one Agent A record, as written back onto a submission row.
 export type TriageResult = {
   summary: string;
