@@ -1,0 +1,26 @@
+.list{display:flex;flex-direction:column;gap:22px;margin-top:8px}
+.card{background:linear-gradient(180deg,var(--card),var(--ink-2));border:1px solid var(--line);
+  border-radius:16px;padding:24px 24px 18px}
+.cardHead{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:16px}
+.cardTitle{font-family:'Syne',sans-serif;font-weight:600;font-size:1.25rem;color:var(--text)}
+.cardHint{color:var(--muted-2);font-size:.86rem;font-weight:300;margin-top:4px;max-width:520px;line-height:1.5}
+.badgeDefault,.badgeCustom{font-family:'Geist Mono',monospace;font-size:.6rem;letter-spacing:.16em;
+  text-transform:uppercase;padding:4px 10px;border-radius:100px;white-space:nowrap}
+.badgeDefault{color:var(--muted-2);border:1px solid var(--line)}
+.badgeCustom{color:var(--cyan-bright);border:1px solid rgba(56,189,248,.4);background:rgba(56,189,248,.06)}
+.area{width:100%;min-height:280px;resize:vertical;background:#070B14;border:1px solid var(--line);
+  border-radius:12px;color:var(--text);font-family:'Geist Mono',monospace;font-size:.8rem;line-height:1.6;
+  padding:16px 18px;outline:none;transition:border-color .25s;white-space:pre-wrap}
+.area:focus{border-color:rgba(56,189,248,.5)}
+.cardFoot{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-top:14px;flex-wrap:wrap}
+.meta{font-family:'Geist Mono',monospace;font-size:.68rem;color:var(--muted-2);letter-spacing:.04em}
+.actions{display:flex;gap:10px}
+.reset{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:100px;
+  padding:10px 18px;font-size:.85rem;cursor:pointer;font-family:'Geist',sans-serif;transition:border-color .25s,color .25s}
+.reset:hover:not(:disabled){border-color:#ff8a5c;color:#ff8a5c}
+.save{background:var(--cyan);color:#04121f;border:none;border-radius:100px;padding:10px 22px;
+  font-size:.9rem;font-weight:600;cursor:pointer;font-family:'Geist',sans-serif;transition:transform .15s,opacity .2s}
+.save:hover:not(:disabled){transform:translateY(-1px)}
+.save:disabled,.reset:disabled{opacity:.5;cursor:not-allowed}
+.ok{color:var(--cyan-bright);font-size:.84rem;margin-top:12px;font-family:'Geist Mono',monospace;letter-spacing:.04em}
+.err{color:#ff8a5c;font-size:.84rem;margin-top:12px}

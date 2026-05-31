@@ -55,3 +55,13 @@ create table if not exists access_requests (
   source      text,
   note        text
 );
+
+-- Editable agent system prompts. A row here OVERRIDES the code default for that
+-- agent; no row means the code default is used. Edits take effect on the next
+-- agent run. This is the live-editable surface for demo day.
+create table if not exists agent_prompts (
+  key         text primary key,
+  content     text not null,
+  updated_at  timestamptz not null default now(),
+  updated_by  text
+);

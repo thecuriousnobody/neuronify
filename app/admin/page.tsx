@@ -35,20 +35,25 @@ export default async function AdminPage() {
           Neuronify <span className={styles.tag}>admin</span>
           <span className={styles.who}>{who}</span>
         </div>
-        {viaGoogle ? (
-          <form
-            action={async () => {
-              'use server';
-              await signOut({ redirectTo: '/admin' });
-            }}
-          >
-            <button className={styles.logout} type="submit">
-              Sign out
-            </button>
-          </form>
-        ) : (
-          <LogoutButton />
-        )}
+        <div className={styles.topActions}>
+          <a className={styles.promptsLink} href="/admin/prompts">
+            Edit agent prompts →
+          </a>
+          {viaGoogle ? (
+            <form
+              action={async () => {
+                'use server';
+                await signOut({ redirectTo: '/admin' });
+              }}
+            >
+              <button className={styles.logout} type="submit">
+                Sign out
+              </button>
+            </form>
+          ) : (
+            <LogoutButton />
+          )}
+        </div>
       </div>
 
       <div className={styles.headRow}>

@@ -28,6 +28,11 @@
 .btnGhost:hover:not(:disabled){border-color:rgba(56,189,248,.5);color:var(--text)}
 .btnGhost:disabled{opacity:.5;cursor:not-allowed}
 .who{font-family:'Geist Mono',monospace;font-size:.66rem;color:var(--muted-2);margin-left:10px}
+.topActions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.promptsLink{font-family:'Geist',sans-serif;font-size:.85rem;color:var(--cyan);text-decoration:none;
+  border:1px solid rgba(56,189,248,.35);border-radius:100px;padding:9px 16px;transition:background .25s,border-color .25s}
+.promptsLink:hover{background:rgba(56,189,248,.08);border-color:rgba(56,189,248,.6)}
+.promptIntro{color:var(--muted);font-weight:300;max-width:680px;line-height:1.6;margin:-8px 0 28px;font-size:1rem}
 
 /* ── panel ── */
 .page{max-width:880px;margin:0 auto;padding:48px 28px 100px;position:relative;z-index:2}

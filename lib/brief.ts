@@ -1,7 +1,7 @@
 import { getSql } from './db';
 import { callLLM, MODELS } from './ai';
-import { AGENT_B_SYSTEM, AGENT_C_SYSTEM } from './agents';
 import { serperSearch, type SearchHit } from './serper';
+import { getPrompt } from './prompts';
 
 export type SubmissionRow = {
   id: string;
@@ -48,7 +48,7 @@ function toPayload(rows: SubmissionRow[]) {
 // Agent B — the ranked, costed council brief.
 async function runBriefWriter(rows: SubmissionRow[]): Promise<string> {
   const md = await callLLM({
-    system: AGENT_B_SYSTEM,
+    system: await getPrompt('agent_b'),
     user: JSON.stringify(toPayload(rows), null, 2),
     model: MODELS.brief,
     temperature: 0.3,
@@ -103,7 +103,7 @@ async function enrich(rows: SubmissionRow[]): Promise<{ actions: string | null; 
 
   try {
     let actions = await callLLM({
-      system: AGENT_C_SYSTEM,
+      system: await getPrompt('agent_c'),
       user: `CATEGORY SUMMARY:\n${catSummary}\n\nWEB SEARCH RESULTS (use only these for external figures):\n${searchContext}`,
       model: MODELS.brief,
       temperature: 0.4,

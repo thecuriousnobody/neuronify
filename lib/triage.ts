@@ -1,11 +1,12 @@
 import { callLLM, parseLooseJSON, MODELS } from './ai';
-import { AGENT_A_SYSTEM, type TriageResult } from './agents';
+import { type TriageResult } from './agents';
+import { getPrompt } from './prompts';
 
 // Run Agent A over one resident submission. Throws on parse/API failure so
 // the caller can mark the row status='error' and still surface it on the wall.
 export async function triage(rawText: string): Promise<TriageResult> {
   const raw = await callLLM({
-    system: AGENT_A_SYSTEM,
+    system: await getPrompt('agent_a'),
     user: rawText,
     model: MODELS.triage,
     temperature: 0.2,
