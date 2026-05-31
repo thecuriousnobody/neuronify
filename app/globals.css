@@ -1,0 +1,35 @@
+/* ── Synapse design system — shared base. Page-specific styles live in
+   landing.css and *.module.css. ── */
+:root{
+  --ink:#0A0E1A;
+  --ink-2:#0C1120;
+  --card:#0E1424;
+  --line:rgba(140,160,200,.10);
+  --cyan:#38BDF8;
+  --cyan-bright:#8FDCFF;
+  --violet:#8B7FD4;
+  --text:#E8ECF3;
+  --muted:#8A93A6;
+  --muted-2:#5E6678;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:var(--ink);
+  color:var(--text);
+  font-family:'Geist',sans-serif;
+  font-weight:400;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+::selection{background:rgba(56,189,248,.25);color:var(--cyan-bright)}
+
+/* grain + atmosphere — global */
+body::before{
+  content:"";position:fixed;inset:0;z-index:1;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.035'/%3E%3C/svg%3E");
+  mix-blend-mode:overlay;
+}
+
+a{color:inherit}
