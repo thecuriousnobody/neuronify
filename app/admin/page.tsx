@@ -1,6 +1,7 @@
-import { isAdmin, adminConfigured } from '@/lib/admin';
+import { auth, isGoogleAdmin, googleConfigured, signOut } from '@/auth';
+import { isAdmin as passcodeAdmin, adminConfigured } from '@/lib/admin';
 import { getSql } from '@/lib/db';
-import AdminLogin from './AdminLogin';
+import SignIn from './SignIn';
 import LogoutButton from './LogoutButton';
 import styles from './admin.module.css';
 
@@ -9,9 +10,15 @@ export const dynamic = 'force-dynamic';
 type Row = { email: string; created_at: string; source: string | null; note: string | null };
 
 export default async function AdminPage() {
-  if (!isAdmin()) {
-    return <AdminLogin configured={adminConfigured()} />;
+  const session = await auth();
+  const viaGoogle = isGoogleAdmin(session);
+  const viaPasscode = !viaGoogle && passcodeAdmin();
+
+  if (!viaGoogle && !viaPasscode) {
+    return <SignIn googleEnabled={googleConfigured()} passcodeConfigured={adminConfigured()} />;
   }
+
+  const who = viaGoogle ? session?.user?.email ?? 'admin' : 'passcode session';
 
   const sql = getSql();
   const rows = (await sql`
@@ -26,8 +33,22 @@ export default async function AdminPage() {
         <div className={styles.brand}>
           <span className={styles.brandDot} />
           Neuronify <span className={styles.tag}>admin</span>
+          <span className={styles.who}>{who}</span>
         </div>
-        <LogoutButton />
+        {viaGoogle ? (
+          <form
+            action={async () => {
+              'use server';
+              await signOut({ redirectTo: '/admin' });
+            }}
+          >
+            <button className={styles.logout} type="submit">
+              Sign out
+            </button>
+          </form>
+        ) : (
+          <LogoutButton />
+        )}
       </div>
 
       <div className={styles.headRow}>
@@ -38,7 +59,9 @@ export default async function AdminPage() {
       </div>
 
       {rows.length === 0 ? (
-        <div className={styles.empty}>No signups yet. They&apos;ll appear here the moment someone requests access.</div>
+        <div className={styles.empty}>
+          No signups yet. They&apos;ll appear here the moment someone requests access.
+        </div>
       ) : (
         <table className={styles.table}>
           <thead>
