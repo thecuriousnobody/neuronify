@@ -1,0 +1,44 @@
+/* ── login gate ── */
+.gate{min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:24px;position:relative;z-index:2}
+.card{width:100%;max-width:360px;display:flex;flex-direction:column;gap:14px;
+  background:linear-gradient(180deg,var(--card),var(--ink-2));
+  border:1px solid var(--line);border-radius:18px;padding:34px 30px}
+.gateLabel{font-family:'Geist Mono',monospace;font-size:.7rem;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--muted-2);margin-top:6px}
+.input{background:var(--ink);border:1px solid var(--line);color:var(--text);
+  border-radius:100px;padding:14px 20px;font-size:1rem;outline:none;transition:border-color .25s;font-family:'Geist',sans-serif}
+.input:focus{border-color:rgba(56,189,248,.5)}
+.btn{background:var(--cyan);color:#04121f;border:none;border-radius:100px;padding:14px 20px;
+  font-size:1rem;font-weight:600;cursor:pointer;font-family:'Geist',sans-serif;transition:transform .2s,opacity .2s}
+.btn:hover:not(:disabled){transform:translateY(-1px)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.err{color:#ff8a5c;font-size:.85rem;text-align:center}
+.hint{color:var(--muted-2);font-size:.78rem;text-align:center;line-height:1.5}
+
+/* ── panel ── */
+.page{max-width:880px;margin:0 auto;padding:48px 28px 100px;position:relative;z-index:2}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:40px}
+.brand{display:flex;align-items:center;gap:11px;font-weight:600;font-size:1.1rem}
+.brandDot{width:10px;height:10px;border-radius:50%;background:var(--cyan);box-shadow:0 0 14px 2px rgba(56,189,248,.8)}
+.tag{font-family:'Geist Mono',monospace;font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--muted-2);border:1px solid var(--line);border-radius:100px;padding:3px 9px;margin-left:2px}
+.logout{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:100px;
+  padding:9px 18px;font-size:.85rem;cursor:pointer;font-family:'Geist',sans-serif;transition:border-color .25s,color .25s}
+.logout:hover{border-color:rgba(56,189,248,.5);color:var(--text)}
+
+.headRow{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:28px}
+.title{font-family:'Syne',sans-serif;font-weight:600;font-size:clamp(2rem,4vw,2.8rem);
+  line-height:1;letter-spacing:-.01em}
+.title .it{color:var(--cyan-bright);font-weight:800}
+.count{font-family:'Syne',sans-serif;font-weight:700;font-size:2.4rem;color:var(--cyan-bright)}
+
+.empty{color:var(--muted);font-weight:300;border:1px solid var(--line);border-radius:14px;
+  padding:36px;text-align:center;background:var(--card)}
+
+.table{width:100%;border-collapse:collapse;font-size:.92rem}
+.table th{text-align:left;font-family:'Geist Mono',monospace;font-size:.66rem;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--muted-2);font-weight:500;padding:0 14px 12px;border-bottom:1px solid var(--line)}
+.table td{padding:14px;border-bottom:1px solid rgba(140,160,200,.07)}
+.email{color:var(--text);font-family:'Geist Mono',monospace;font-size:.88rem}
+.when{color:var(--muted)}
+.src{color:var(--muted-2);font-family:'Geist Mono',monospace;font-size:.78rem}
