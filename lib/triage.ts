@@ -9,7 +9,9 @@ export async function triage(rawText: string): Promise<TriageResult> {
     user: rawText,
     model: MODELS.triage,
     temperature: 0.2,
-    maxTokens: 700,
+    // Thinking is off, so the JSON is the only output — keep this tight to
+    // stay well under Groq's free-tier tokens-per-minute ceiling.
+    maxTokens: 512,
   });
 
   const data = parseLooseJSON<Partial<TriageResult>>(raw);

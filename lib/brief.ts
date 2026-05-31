@@ -79,7 +79,7 @@ export async function generateBrief(sessionId: string): Promise<BriefResult> {
       user: JSON.stringify(payload, null, 2),
       model: MODELS.brief,
       temperature: 0.3,
-      maxTokens: 2200,
+      maxTokens: 1800,
     });
     markdown = markdown.replace(/```markdown|```md|```/g, '').trim();
   }

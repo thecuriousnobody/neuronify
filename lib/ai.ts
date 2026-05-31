@@ -47,11 +47,19 @@ function providerConfig() {
 export const MODELS = {
   triage:
     process.env.AGENT_A_MODEL ||
-    (PROVIDER === 'anthropic' ? 'claude-haiku-4-5-20251001' : 'llama-3.1-8b-instant'),
+    (PROVIDER === 'anthropic' ? 'claude-haiku-4-5-20251001' : 'qwen/qwen3-32b'),
   brief:
     process.env.AGENT_B_MODEL ||
-    (PROVIDER === 'anthropic' ? 'claude-sonnet-4-6' : 'llama-3.3-70b-versatile'),
+    (PROVIDER === 'anthropic' ? 'claude-sonnet-4-6' : 'qwen/qwen3-32b'),
 };
+
+// Reasoning models (Qwen3, DeepSeek-R1, ...) emit <think> traces and burn huge
+// token budgets. On Groq's free tier (6k tokens/min) that's fatal, so we turn
+// thinking OFF (reasoning_effort:'none') — fewer tokens, lower latency, and
+// clean output for Agent A's strict-JSON contract.
+const REASONING_RE = /qwen3|deepseek-?r1|reasoning/i;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export async function callLLM({
   system,
@@ -84,25 +92,43 @@ export async function callLLM({
   }
 
   // OpenAI-compatible: Groq, Ollama, OpenAI, etc.
-  const res = await fetch(`${cfg.baseURL}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      authorization: `Bearer ${cfg.apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      temperature,
-      max_tokens: maxTokens,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
-    }),
-  });
-  if (!res.ok) throw new Error(`LLM ${res.status}: ${await res.text()}`);
-  const data = await res.json();
-  return data?.choices?.[0]?.message?.content ?? '';
+  const payload: Record<string, unknown> = {
+    model,
+    temperature,
+    max_tokens: maxTokens,
+    messages: [
+      { role: 'system', content: system },
+      { role: 'user', content: user },
+    ],
+  };
+  // Groq + a reasoning model: disable thinking to conserve the TPM budget.
+  if (PROVIDER === 'groq' && REASONING_RE.test(model)) {
+    payload.reasoning_effort = 'none';
+  }
+
+  // Retry on 429 (rate limit), honoring Groq's "try again in Xs" hint.
+  const MAX_RETRIES = 5;
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(`${cfg.baseURL}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${cfg.apiKey}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (res.status === 429 && attempt < MAX_RETRIES) {
+      const body = await res.text();
+      const hinted = body.match(/try again in ([\d.]+)\s*s/i);
+      const waitMs = hinted ? Math.ceil(parseFloat(hinted[1]) * 1000) + 300 : (attempt + 1) * 2000;
+      await sleep(Math.min(waitMs, 12000));
+      continue;
+    }
+    if (!res.ok) throw new Error(`LLM ${res.status}: ${await res.text()}`);
+    const data = await res.json();
+    return data?.choices?.[0]?.message?.content ?? '';
+  }
 }
 
 // Defend the parse, per the baseline doc's standing lesson: strip stray
