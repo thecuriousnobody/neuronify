@@ -117,7 +117,8 @@ section{position:relative;z-index:2}
 .final h2{font-family:'Syne',sans-serif;font-weight:600;
   font-size:clamp(2.8rem,6.5vw,5rem);line-height:1;letter-spacing:-.02em}
 .final h2 .it{color:var(--cyan-bright);font-weight:800}
-.signup{display:flex;gap:10px;max-width:430px;margin:46px auto 0;flex-wrap:wrap;justify-content:center}
+.join-sub{color:var(--muted);font-weight:300;max-width:420px;margin:22px auto 0;font-size:1rem}
+.signup{display:flex;gap:10px;max-width:430px;margin:30px auto 0;flex-wrap:wrap;justify-content:center}
 .signup input{flex:1;min-width:220px;background:var(--card);border:1px solid var(--line);
   color:var(--text);padding:15px 20px;border-radius:100px;font-family:'Geist',sans-serif;font-size:.95rem;outline:none;
   transition:border-color .3s}

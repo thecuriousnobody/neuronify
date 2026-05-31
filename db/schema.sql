@@ -44,3 +44,14 @@ create index if not exists submissions_session_created_idx
 
 create index if not exists sessions_open_idx
   on sessions (started_at desc) where ended_at is null;
+
+-- Early-access waitlist. This is OPT-IN contact info a person volunteers via
+-- the landing "Request access" form — distinct from the anonymous civic
+-- submissions above. Email is stored lowercased and unique so re-submits are safe.
+create table if not exists access_requests (
+  id          uuid primary key default gen_random_uuid(),
+  email       text not null unique,
+  created_at  timestamptz not null default now(),
+  source      text,
+  note        text
+);

@@ -171,21 +171,43 @@ export default function Landing() {
     };
   }, []);
 
-  const join = () => {
+  const join = async () => {
     const input = document.getElementById('email') as HTMLInputElement | null;
     const t = document.getElementById('thanks');
+    const btn = document.getElementById('joinBtn') as HTMLButtonElement | null;
     if (!input || !t) return;
     const v = input.value.trim();
-    if (!v || !v.includes('@')) {
+    if (!v || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) {
       t.textContent = 'ENTER A VALID SIGNAL ADDRESS';
       t.style.opacity = '1';
       t.style.color = '#ff8a5c';
       return;
     }
-    t.textContent = "SIGNAL RECEIVED — we'll be in touch.";
-    t.style.color = 'var(--cyan-bright)';
+    t.textContent = 'SENDING…';
+    t.style.color = 'var(--muted)';
     t.style.opacity = '1';
-    input.value = '';
+    if (btn) btn.disabled = true;
+    try {
+      const res = await fetch('/api/access', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: v }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        t.textContent = (d?.error || 'Something went wrong — try again').toUpperCase();
+        t.style.color = '#ff8a5c';
+      } else {
+        t.textContent = "SIGNAL RECEIVED — we'll be in touch.";
+        t.style.color = 'var(--cyan-bright)';
+        input.value = '';
+      }
+    } catch {
+      t.textContent = 'NETWORK HICCUP — TRY AGAIN';
+      t.style.color = '#ff8a5c';
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   };
 
   return (
@@ -347,9 +369,13 @@ export default function Landing() {
           <h2 className="reveal">
             Neuronify <span className="it">your city.</span>
           </h2>
+          <p className="join-sub reveal">
+            Want this for your city, or to follow where it goes next? Leave your email and
+            we&apos;ll reach out.
+          </p>
           <div className="signup reveal">
             <input id="email" type="email" placeholder="your@email.com" aria-label="Email" />
-            <button className="btn btn-primary" onClick={join}>
+            <button id="joinBtn" className="btn btn-primary" onClick={join}>
               Request access <span className="arrow">→</span>
             </button>
           </div>

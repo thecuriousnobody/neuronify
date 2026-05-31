@@ -55,11 +55,14 @@ const run = (text) => {
   return sql(ts);
 };
 
-// Neon's HTTP endpoint runs one statement per call — split on ';' and run each.
+// Neon's HTTP endpoint runs one statement per call. Strip line comments FIRST
+// (a ';' inside a comment would otherwise split a statement mid-way), then
+// split on ';' and run each.
 const statements = schema
+  .replace(/--.*$/gm, '')
   .split(';')
   .map((s) => s.trim())
-  .filter((s) => s && !/^(--.*\s*)*$/.test(s));
+  .filter(Boolean);
 
 try {
   await run('select 1');
