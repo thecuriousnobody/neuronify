@@ -2,6 +2,7 @@ import { getSql } from '@/lib/db';
 import { getOrCreateSession } from '@/lib/session';
 import { rateLimit } from '@/lib/ratelimit';
 import { triage } from '@/lib/triage';
+import { resolveCity } from '@/lib/cities';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,9 +39,10 @@ export async function POST(req: Request) {
 
   const sql = getSql();
 
-  // Resolve session (provided or the current rolling one).
+  // Resolve city + session (provided session, or the city's rolling one).
+  const city = resolveCity(body?.city);
   let sessionId = body?.session_id as string | undefined;
-  if (!sessionId) sessionId = (await getOrCreateSession()).id;
+  if (!sessionId) sessionId = (await getOrCreateSession(city.db)).id;
 
   // Insert the raw submission first so it surfaces on the wall immediately,
   // even if triage is slow or fails.
@@ -52,7 +54,7 @@ export async function POST(req: Request) {
   const id = inserted[0].id;
 
   try {
-    const t = await triage(rawText);
+    const t = await triage(rawText, city.prompt);
     await sql`
       update submissions set
         status = 'triaged',

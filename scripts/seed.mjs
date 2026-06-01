@@ -35,33 +35,52 @@ const SIGNALS = [
   "Can we host a community art weekend and let residents paint murals on the blank walls and underpasses downtown? Turn the eyesores into landmarks.",
 ];
 
+// Pekin, IL — authentic local signals. Run with: SEED_CITY=pekin node scripts/seed.mjs
+const PEKIN_SIGNALS = [
+  "Court Street downtown has too many empty storefronts. We need a real plan to bring shops and people back to the heart of Pekin.",
+  "Mineral Springs Park is a gem but the lagoon and the old pavilion are run down. Could we restore it to what it used to be?",
+  "Veterans Drive backs up badly near the bridge at rush hour. People crossing to Peoria for work sit in it every day.",
+  "The Pekin riverfront along the Illinois River is underused. Imagine a real riverfront park and trail people would actually visit.",
+  "Potholes all over Broadway and Derby are wrecking cars. They've been patched and re-opened for years.",
+  "We need better bus connections between Pekin and Peoria for the people who work across the river and don't drive.",
+  "Could Pekin throw a big downtown arts and music festival again, like the Marigold days, to draw people back?",
+  "Spring flooding near the river keeps damaging the same homes. We need serious stormwater and levee investment.",
+  "The empty buildings downtown could become a maker space or small-business incubator for Pekin's young people.",
+  "Kids walking to Pekin Community High School need safer sidewalks and more streetlights along the route.",
+  "The skate park and courts at the south side parks are worn out. Give kids somewhere safe to be.",
+  "More trees and shade downtown — the summers are brutal and Court Street is all pavement.",
+];
+
+const CITY = (process.env.SEED_CITY || '').toLowerCase();
+const SET = CITY === 'pekin' ? PEKIN_SIGNALS : SIGNALS;
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const today = new Date().toISOString().slice(0, 10);
 const sres = await fetch(`${BASE}/api/session`, {
   method: 'POST',
   headers: { 'content-type': 'application/json' },
-  body: JSON.stringify({ label: `Dry run — ${today}` }),
+  body: JSON.stringify({ label: `Dry run — ${today}`, city: CITY }),
 });
 const session = await sres.json();
-console.log('Fresh session:', session.id);
+console.log(`Fresh session (${CITY || 'peoria'}):`, session.id);
 
 let ok = 0;
 let other = 0;
-for (let i = 0; i < SIGNALS.length; i++) {
+for (let i = 0; i < SET.length; i++) {
   try {
     const r = await fetch(`${BASE}/api/submit`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-forwarded-for': `10.30.0.${i}` },
-      body: JSON.stringify({ raw_text: SIGNALS[i], session_id: session.id }),
+      headers: { 'content-type': 'application/json', 'x-forwarded-for': `10.31.0.${i}` },
+      body: JSON.stringify({ raw_text: SET[i], session_id: session.id, city: CITY }),
     });
     const d = await r.json();
     if (d.status === 'triaged') {
       ok++;
-      console.log(`✓ ${i + 1}/${SIGNALS.length}  ${d.category}/${d.severity}  $${d.cost_low_usd}-${d.cost_high_usd}  ${(d.summary || '').slice(0, 48)}`);
+      console.log(`✓ ${i + 1}/${SET.length}  ${d.category}/${d.severity}  $${d.cost_low_usd}-${d.cost_high_usd}  ${(d.summary || '').slice(0, 48)}`);
     } else {
       other++;
-      console.log(`• ${i + 1}/${SIGNALS.length}  ${d.status || 'no-status'}`);
+      console.log(`• ${i + 1}/${SET.length}  ${d.status || 'no-status'}`);
     }
   } catch (e) {
     other++;

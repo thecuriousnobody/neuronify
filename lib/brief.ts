@@ -2,6 +2,7 @@ import { getSql } from './db';
 import { callLLM, MODELS } from './ai';
 import { serperSearch, type SearchHit } from './serper';
 import { getPrompt } from './prompts';
+import { cityByDb } from './cities';
 
 export type SubmissionRow = {
   id: string;
@@ -20,6 +21,8 @@ export type SubmissionRow = {
 
 export type BriefResult = {
   sessionId: string;
+  city: string;
+  cityShort: string;
   residentCount: number;
   totalLow: number;
   totalHigh: number;
@@ -46,9 +49,10 @@ function toPayload(rows: SubmissionRow[]) {
 }
 
 // Agent B — the ranked, costed council brief.
-async function runBriefWriter(rows: SubmissionRow[]): Promise<string> {
+async function runBriefWriter(rows: SubmissionRow[], cityPrompt: string): Promise<string> {
+  const base = await getPrompt('agent_b');
   const md = await callLLM({
-    system: await getPrompt('agent_b'),
+    system: `CITY CONTEXT: This session is for ${cityPrompt}. Address the brief to the ${cityPrompt} city council and mayor; use ${cityPrompt} wherever your instructions name a city.\n\n${base}`,
     user: JSON.stringify(toPayload(rows), null, 2),
     model: MODELS.brief,
     temperature: 0.3,
@@ -59,7 +63,10 @@ async function runBriefWriter(rows: SubmissionRow[]): Promise<string> {
 
 // Agent C — SERPER-grounded proactive action proposals. Runs at brief-time
 // only, bounded to a handful of searches. Fails soft (returns null actions).
-async function enrich(rows: SubmissionRow[]): Promise<{ actions: string | null; sources: SearchHit[] }> {
+async function enrich(
+  rows: SubmissionRow[],
+  cityPrompt: string,
+): Promise<{ actions: string | null; sources: SearchHit[] }> {
   if (!process.env.SERPER_API_KEY) return { actions: null, sources: [] };
 
   // Top interventions by how many residents raised them.
@@ -103,7 +110,7 @@ async function enrich(rows: SubmissionRow[]): Promise<{ actions: string | null; 
 
   try {
     let actions = await callLLM({
-      system: await getPrompt('agent_c'),
+      system: `CITY CONTEXT: These actions are for ${cityPrompt}. Propose actions for ${cityPrompt} and use that city wherever your instructions name a city.\n\n${await getPrompt('agent_c')}`,
       user: `CATEGORY SUMMARY:\n${catSummary}\n\nWEB SEARCH RESULTS (use only these for external figures):\n${searchContext}`,
       model: MODELS.brief,
       temperature: 0.4,
@@ -120,6 +127,8 @@ async function enrich(rows: SubmissionRow[]): Promise<{ actions: string | null; 
 // writes the ranked prose; Agent C adds SERPER-grounded proactive actions.
 export async function generateBrief(sessionId: string): Promise<BriefResult> {
   const sql = getSql();
+  const sess = (await sql`select city from sessions where id = ${sessionId}`) as { city: string }[];
+  const city = cityByDb(sess[0]?.city);
   const rows = (await sql`
     select id, summary, category, severity, intervention,
            cost_low_usd, cost_high_usd, cost_basis,
@@ -149,6 +158,8 @@ export async function generateBrief(sessionId: string): Promise<BriefResult> {
   if (residentCount === 0) {
     return {
       sessionId,
+      city: city.db,
+      cityShort: city.short,
       residentCount,
       totalLow,
       totalHigh,
@@ -160,10 +171,15 @@ export async function generateBrief(sessionId: string): Promise<BriefResult> {
   }
 
   // Brief writer and the grounded action planner run concurrently.
-  const [markdown, enrichment] = await Promise.all([runBriefWriter(rows), enrich(rows)]);
+  const [markdown, enrichment] = await Promise.all([
+    runBriefWriter(rows, city.prompt),
+    enrich(rows, city.prompt),
+  ]);
 
   return {
     sessionId,
+    city: city.db,
+    cityShort: city.short,
     residentCount,
     totalLow,
     totalHigh,

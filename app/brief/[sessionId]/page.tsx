@@ -44,9 +44,9 @@ export default async function BriefPage({
     <main className={styles.page}>
       <Header />
 
-      <div className={styles.eyebrow}>Peoria · session brief</div>
+      <div className={styles.eyebrow}>{brief.cityShort} · session brief</div>
       <h1 className={styles.title}>
-        What Peoria <span className={styles.it}>asked for.</span>
+        What {brief.cityShort} <span className={styles.it}>asked for.</span>
       </h1>
 
       <div className={styles.stats}>
@@ -96,7 +96,8 @@ export default async function BriefPage({
       )}
 
       <div className={styles.foot}>
-        NEURONIFY · COMMUNITY SIGNAL · PEORIA, ILLINOIS · NOT A FORMAL ENGINEERING QUOTE
+        NEURONIFY · COMMUNITY SIGNAL · {brief.cityShort.toUpperCase()}, ILLINOIS · NOT A FORMAL
+        ENGINEERING QUOTE
       </div>
     </main>
   );

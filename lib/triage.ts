@@ -4,9 +4,11 @@ import { getPrompt } from './prompts';
 
 // Run Agent A over one resident submission. Throws on parse/API failure so
 // the caller can mark the row status='error' and still surface it on the wall.
-export async function triage(rawText: string): Promise<TriageResult> {
+export async function triage(rawText: string, cityPrompt = 'Peoria, Illinois'): Promise<TriageResult> {
+  const base = await getPrompt('agent_a');
+  const system = `CITY CONTEXT: This resident is in ${cityPrompt}. Wherever your instructions name a city, treat the city as ${cityPrompt}.\n\n${base}`;
   const raw = await callLLM({
-    system: await getPrompt('agent_a'),
+    system,
     user: rawText,
     model: MODELS.triage,
     temperature: 0.2,

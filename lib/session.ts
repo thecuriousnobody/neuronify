@@ -8,17 +8,19 @@ export type Session = {
   ended_at: string | null;
 };
 
-// Return the most recent open session, creating one if none exists.
-// The demo runs as a single rolling session.
-export async function getOrCreateSession(): Promise<Session> {
+// Return the most recent open session for a city, creating one if none exists.
+// Sessions are keyed by city so each city has its own rolling session.
+export async function getOrCreateSession(city = 'Peoria, IL'): Promise<Session> {
   const sql = getSql();
   const open = (await sql`
-    select * from sessions where ended_at is null order by started_at desc limit 1
+    select * from sessions
+    where ended_at is null and city = ${city}
+    order by started_at desc limit 1
   `) as Session[];
   if (open[0]) return open[0];
 
   const created = (await sql`
-    insert into sessions (city) values ('Peoria, IL') returning *
+    insert into sessions (city) values (${city}) returning *
   `) as Session[];
   return created[0];
 }

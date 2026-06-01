@@ -43,6 +43,8 @@ export default function Wall() {
   const [count, setCount] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [cityLabel, setCityLabel] = useState('Peoria, Illinois');
+  const [citySlug, setCitySlug] = useState('');
 
   const seenRef = useRef<Set<string>>(new Set());
   const fireRef = useRef<(n?: number) => void>(() => {});
@@ -50,14 +52,18 @@ export default function Wall() {
   // ── poll the feed ──
   useEffect(() => {
     let active = true;
+    const slug = new URLSearchParams(window.location.search).get('city') || '';
+    setCitySlug(slug);
     const tick = async () => {
       try {
-        const qs = sessionId ? `?sessionId=${sessionId}` : '';
-        const res = await fetch(`/api/feed${qs}`, { cache: 'no-store' });
+        const res = await fetch(`/api/feed${slug ? `?city=${encodeURIComponent(slug)}` : ''}`, {
+          cache: 'no-store',
+        });
         if (!res.ok) return;
         const data = await res.json();
         if (!active) return;
-        if (data.sessionId && !sessionId) setSessionId(data.sessionId);
+        if (data.sessionId) setSessionId(data.sessionId);
+        if (data.cityShort) setCityLabel(`${data.cityShort}, Illinois`);
 
         const subs: FeedItem[] = data.submissions ?? [];
         // Fire the canvas only for genuinely new ids.
@@ -79,7 +85,7 @@ export default function Wall() {
       active = false;
       clearInterval(id);
     };
-  }, [sessionId]);
+  }, []);
 
   // ── neural canvas with a fire() burst per incoming signal ──
   useEffect(() => {
@@ -232,14 +238,14 @@ export default function Wall() {
       <canvas id="wallnet" className={styles.canvas} />
       <div className={styles.vignette} />
 
-      <div className={styles.grid}>
-        <div className={styles.left}>
-          <div className={styles.brand}>
+      <div className={styles.stage}>
+        <div className={styles.brand}>
             <span className={styles.brandDot} />
             Neuronify
           </div>
 
-          <div className={styles.headline}>
+          <div className={styles.hero}>
+            <div className={styles.headline}>
             <div className={styles.eyebrow}>Live · the city is firing</div>
             <div className={styles.count}>
               <span className={styles.countNum}>{count}</span>
@@ -247,7 +253,7 @@ export default function Wall() {
                 residents <span className={styles.it}>spoke.</span>
               </span>
             </div>
-            <div className={styles.city}>Peoria, Illinois</div>
+            <div className={styles.city}>{cityLabel}</div>
           </div>
 
           <div className={styles.ops}>
@@ -259,7 +265,7 @@ export default function Wall() {
               {generating ? 'Generating…' : 'Generate brief →'}
             </button>
             <div className={styles.qr}>
-              Speak at <b>neuronify.ai/speak</b>
+              Speak at <b>neuronify.ai/speak{citySlug ? `?city=${citySlug}` : ''}</b>
             </div>
           </div>
         </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import styles from './speak.module.css';
+import { resolveCity } from '@/lib/cities';
 
 type Phase = 'idle' | 'sending' | 'done';
 
@@ -12,6 +13,11 @@ export default function Speak() {
   const [summary, setSummary] = useState<string | null>(null);
   const [listening, setListening] = useState(false);
   const [micSupported, setMicSupported] = useState(false);
+  const [city, setCity] = useState(() => resolveCity(null));
+
+  useEffect(() => {
+    setCity(resolveCity(new URLSearchParams(window.location.search).get('city')));
+  }, []);
 
   const recognitionRef = useRef<any>(null);
   const usedVoiceRef = useRef(false);
@@ -95,6 +101,7 @@ export default function Speak() {
         body: JSON.stringify({
           raw_text: value,
           source: usedVoiceRef.current ? 'voice' : 'text',
+          city: city.slug,
         }),
       });
       const data = await res.json();
@@ -147,7 +154,7 @@ export default function Speak() {
         </div>
       ) : (
         <div className={styles.inner}>
-          <div className={styles.eyebrow}>Speak to Peoria</div>
+          <div className={styles.eyebrow}>Speak to {city.short}</div>
           <h1 className={styles.prompt}>
             What does your city <span className={styles.it}>need?</span>
           </h1>

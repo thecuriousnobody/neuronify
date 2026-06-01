@@ -4,44 +4,47 @@
   position:absolute;inset:0;z-index:1;pointer-events:none;
   background:radial-gradient(120% 90% at 30% 40%,transparent 35%,var(--ink) 85%);
 }
-.grid{
-  position:relative;z-index:2;height:100%;
-  display:grid;grid-template-columns:1fr 420px;gap:0;
+/* centered stage — built to be projected */
+.stage{
+  position:relative;z-index:2;min-height:100dvh;
+  display:flex;flex-direction:column;align-items:center;
+  padding:34px 28px 38px;text-align:center;
 }
-@media(max-width:900px){.grid{grid-template-columns:1fr}}
-
-/* left: headline + counter */
-.left{display:flex;flex-direction:column;justify-content:space-between;padding:48px 52px}
-.brand{display:flex;align-items:center;gap:12px;font-weight:600;font-size:1.2rem}
+.brand{display:flex;align-items:center;gap:12px;font-weight:600;font-size:1.2rem;margin-bottom:8px}
 .brandDot{width:11px;height:11px;border-radius:50%;background:var(--cyan);
   box-shadow:0 0 14px 2px rgba(56,189,248,.8);animation:breathe 3.4s ease-in-out infinite}
 @keyframes breathe{0%,100%{opacity:.55;transform:scale(.85)}50%{opacity:1;transform:scale(1.15)}}
-.headline{max-width:620px}
-.eyebrow{font-family:'Geist Mono',monospace;font-size:.72rem;letter-spacing:.3em;
-  text-transform:uppercase;color:var(--cyan);margin-bottom:20px}
-.count{font-family:'Syne',sans-serif;font-weight:700;line-height:.92;letter-spacing:-.02em}
-.countNum{display:block;font-size:clamp(5rem,13vw,11rem);color:var(--text)}
-.countLabel{display:block;font-size:clamp(1.6rem,3vw,2.6rem);color:var(--muted)}
-.countLabel .it{color:var(--cyan-bright);font-weight:800}
-.city{font-family:'Geist Mono',monospace;font-size:.78rem;letter-spacing:.24em;
-  text-transform:uppercase;color:var(--muted-2);margin-top:24px}
 
-/* operator controls */
-.ops{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+/* big centered counter, fills the middle */
+.hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  width:100%;max-width:1100px}
+.eyebrow{font-family:'Geist Mono',monospace;font-size:.84rem;letter-spacing:.34em;
+  text-transform:uppercase;color:var(--cyan);margin-bottom:26px}
+.count{font-family:'Syne',sans-serif;font-weight:700;line-height:.9;letter-spacing:-.02em}
+.countNum{display:block;font-size:clamp(7rem,21vw,17rem);color:var(--text)}
+.countLabel{display:block;font-size:clamp(2rem,5vw,4rem);color:var(--muted);margin-top:.08em}
+.countLabel .it{color:var(--cyan-bright);font-weight:800}
+.city{font-family:'Geist Mono',monospace;font-size:clamp(1rem,2vw,1.5rem);letter-spacing:.28em;
+  text-transform:uppercase;color:var(--cyan-bright);margin-top:36px}
+
+/* operator controls, centered */
+.ops{display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;margin-top:42px}
 .brief{
   display:inline-flex;align-items:center;gap:10px;background:var(--cyan);color:#04121f;
-  border:none;border-radius:100px;padding:15px 26px;font-size:1rem;font-weight:500;cursor:pointer;
+  border:none;border-radius:100px;padding:16px 30px;font-size:1.05rem;font-weight:600;cursor:pointer;
   font-family:'Geist',sans-serif;transition:transform .2s,box-shadow .3s,opacity .2s;
 }
 .brief:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 10px 34px -8px rgba(56,189,248,.55)}
 .brief:disabled{opacity:.5;cursor:not-allowed}
-.qr{font-family:'Geist Mono',monospace;font-size:.72rem;letter-spacing:.1em;color:var(--muted-2)}
+.qr{font-family:'Geist Mono',monospace;font-size:.78rem;letter-spacing:.1em;color:var(--muted-2)}
 .qr b{color:var(--cyan-bright);font-weight:500}
 
-/* right: live feed */
+/* live feed: centered strip below the hero */
 .feed{
-  border-left:1px solid var(--line);background:rgba(7,11,20,.55);backdrop-filter:blur(8px);
-  display:flex;flex-direction:column;overflow:hidden;
+  width:100%;max-width:900px;margin-top:16px;max-height:28vh;
+  border:1px solid var(--line);border-radius:16px;
+  background:rgba(7,11,20,.55);backdrop-filter:blur(8px);
+  display:flex;flex-direction:column;overflow:hidden;text-align:left;
 }
 .feedHead{
   padding:22px 26px;border-bottom:1px solid var(--line);

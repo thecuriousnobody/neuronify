@@ -1,5 +1,6 @@
 import { getSql } from '@/lib/db';
 import { getOrCreateSession } from '@/lib/session';
+import { resolveCity } from '@/lib/cities';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -7,8 +8,9 @@ export const dynamic = 'force-dynamic';
 // Polled by /wall (~1.2s). Returns triaged summaries only — never raw_text.
 export async function GET(req: Request) {
   const url = new URL(req.url);
+  const city = resolveCity(url.searchParams.get('city'));
   let sessionId = url.searchParams.get('sessionId') || undefined;
-  if (!sessionId) sessionId = (await getOrCreateSession()).id;
+  if (!sessionId) sessionId = (await getOrCreateSession(city.db)).id;
 
   const sql = getSql();
   const submissions = await sql`
@@ -20,7 +22,7 @@ export async function GET(req: Request) {
   `;
 
   return Response.json(
-    { sessionId, count: submissions.length, submissions },
+    { sessionId, city: city.db, cityShort: city.short, citySlug: city.slug, count: submissions.length, submissions },
     { headers: { 'cache-control': 'no-store' } },
   );
 }
