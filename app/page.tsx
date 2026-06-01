@@ -221,6 +221,8 @@ export default function Landing() {
           <div className="nav-links">
             <a href="#how">How it works</a>
             <a href="#brief">The brief</a>
+            <a href="/speak">Speak</a>
+            <a href="/wall">Live wall</a>
             <a href="#join" className="btn-ghost">
               Early access
             </a>
@@ -383,12 +385,35 @@ export default function Landing() {
         </div>
       </section>
 
-      <footer className="wrap">
-        <div className="f-logo">
-          <span className="dot" />
-          Neuronify
+      <footer>
+        <div className="wrap footer-inner">
+          <div className="footer-brand">
+            <div className="f-logo">
+              <span className="dot" />
+              Neuronify
+            </div>
+            <div className="meta">neuronify.ai · Peoria, Illinois</div>
+          </div>
+          <nav className="footer-nav">
+            <div className="footer-col">
+              <div className="footer-h">Participate</div>
+              <a href="/speak">Speak</a>
+              <a href="/wall">Live wall</a>
+              <a href="/brief/66df1af1-4d80-4115-a042-5ad41170f730">Sample brief</a>
+            </div>
+            <div className="footer-col">
+              <div className="footer-h">Operate</div>
+              <a href="/admin">Admin</a>
+              <a href="/qr">QR poster</a>
+            </div>
+            <div className="footer-col">
+              <div className="footer-h">Explore</div>
+              <a href="/preview">All screens</a>
+              <a href="#how">How it works</a>
+              <a href="#brief">The brief</a>
+            </div>
+          </nav>
         </div>
-        <div className="meta">neuronify.ai · Peoria, Illinois</div>
       </footer>
     </>
   );
