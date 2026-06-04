@@ -394,7 +394,7 @@ export default function Landing() {
             </div>
             <div className="meta">neuronify.ai · Peoria, Illinois</div>
           </div>
-          <nav className="footer-nav">
+          <div className="footer-nav">
             <div className="footer-col">
               <div className="footer-h">Participate</div>
               <a href="/speak">Speak</a>
@@ -412,7 +412,7 @@ export default function Landing() {
               <a href="#how">How it works</a>
               <a href="#brief">The brief</a>
             </div>
-          </nav>
+          </div>
         </div>
       </footer>
     </>
