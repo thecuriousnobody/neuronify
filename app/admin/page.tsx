@@ -30,11 +30,11 @@ export default async function AdminPage() {
   return (
     <main className={styles.page}>
       <div className={styles.top}>
-        <div className={styles.brand}>
+        <a href="/" className={styles.brand}>
           <span className={styles.brandDot} />
           Neuronify <span className={styles.tag}>admin</span>
           <span className={styles.who}>{who}</span>
-        </div>
+        </a>
         <div className={styles.topActions}>
           <a className={styles.promptsLink} href="/admin/prompts">
             Edit agent prompts →

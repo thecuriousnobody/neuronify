@@ -37,7 +37,7 @@
 /* ── panel ── */
 .page{max-width:880px;margin:0 auto;padding:48px 28px 100px;position:relative;z-index:2}
 .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:40px}
-.brand{display:flex;align-items:center;gap:11px;font-weight:600;font-size:1.1rem}
+.brand{text-decoration:none;color:inherit;display:flex;align-items:center;gap:11px;font-weight:600;font-size:1.1rem}
 .brandDot{width:10px;height:10px;border-radius:50%;background:var(--cyan);box-shadow:0 0 14px 2px rgba(56,189,248,.8)}
 .tag{font-family:'Geist Mono',monospace;font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;
   color:var(--muted-2);border:1px solid var(--line);border-radius:100px;padding:3px 9px;margin-left:2px}

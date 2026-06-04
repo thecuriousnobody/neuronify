@@ -37,10 +37,10 @@ export default function PreviewPage() {
 
       <div className={styles.wrap}>
         <header className={styles.head}>
-          <div className={styles.brand} data-reveal>
+          <a href="/" className={styles.brand} data-reveal>
             <span className={styles.brandDot} />
             Neuronify
-          </div>
+          </a>
           <div className={styles.eyebrow} data-reveal>
             Preview · every service
           </div>

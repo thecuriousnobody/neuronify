@@ -13,10 +13,10 @@ export default async function PromptsPage() {
   return (
     <main className={styles.page}>
       <div className={styles.top}>
-        <div className={styles.brand}>
+        <a href="/" className={styles.brand}>
           <span className={styles.brandDot} />
           Neuronify <span className={styles.tag}>agent prompts</span>
-        </div>
+        </a>
         <a className={styles.logout} href="/admin">
           ← waitlist
         </a>

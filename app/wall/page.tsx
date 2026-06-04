@@ -239,10 +239,10 @@ export default function Wall() {
       <div className={styles.vignette} />
 
       <div className={styles.stage}>
-        <div className={styles.brand}>
+        <a href="/" className={styles.brand}>
             <span className={styles.brandDot} />
             Neuronify
-          </div>
+          </a>
 
           <div className={styles.hero}>
             <div className={styles.headline}>
