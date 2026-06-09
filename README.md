@@ -72,3 +72,10 @@ To run fully local/free: `AI_PROVIDER=ollama` (run `ollama serve`; no key).
 Submissions are **anonymous**. We store only `raw_text` (what was said) — never names,
 emails, or phone numbers. Cost figures are illustrative national ballparks, labeled as
 planning-level illustration, not engineering quotes.
+
+## Built in public
+
+Neuronify is built in the open, in Peoria. The **engine is open source** (MIT — see
+[`LICENSE`](LICENSE)); the brand, the hosted service, the data, and the connector network
+are stewarded by the maintainers. See [`OWNERSHIP.md`](OWNERSHIP.md) for the honest breakdown.
+Contributions welcome — contribution is membership.
