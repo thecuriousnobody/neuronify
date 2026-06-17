@@ -51,6 +51,13 @@ export const MODELS = {
   brief:
     process.env.AGENT_B_MODEL ||
     (PROVIDER === 'anthropic' ? 'claude-sonnet-4-6' : 'qwen/qwen3-32b'),
+  // Ideation Club board
+  augment:
+    process.env.AGENT_A_MODEL ||
+    (PROVIDER === 'anthropic' ? 'claude-haiku-4-5-20251001' : 'llama-3.3-70b-versatile'),
+  harvest:
+    process.env.AGENT_B_MODEL ||
+    (PROVIDER === 'anthropic' ? 'claude-sonnet-4-6' : 'llama-3.3-70b-versatile'),
 };
 
 // Reasoning models (Qwen3, DeepSeek-R1, ...) emit <think> traces and burn huge
