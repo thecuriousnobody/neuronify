@@ -223,6 +223,7 @@ export default function Landing() {
             <a href="#brief">The brief</a>
             <a href="/speak">Speak</a>
             <a href="/wall">Live wall</a>
+            <a href="/intake">File a report</a>
             <a href="#join" className="btn-ghost">
               Early access
             </a>
@@ -397,6 +398,7 @@ export default function Landing() {
           <div className="footer-nav">
             <div className="footer-col">
               <div className="footer-h">Participate</div>
+              <a href="/intake">File a report</a>
               <a href="/speak">Speak</a>
               <a href="/wall">Live wall</a>
               <a href="/brief/66df1af1-4d80-4115-a042-5ad41170f730">Sample brief</a>
