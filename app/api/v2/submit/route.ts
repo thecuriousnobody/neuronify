@@ -6,11 +6,17 @@ import { submitForm, type FieldValue } from '@/engine';
 import { rateLimit } from '@/lib/ratelimit';
 import { resolveCity } from '@/lib/cities';
 import { errorResponse } from '@/lib/engine/http';
+import { currentUser } from '@/auth';
+import { getSql } from '@/lib/db';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
+  // Beta gate: must be signed in with Google.
+  const user = await currentUser();
+  if (!user) return Response.json({ error: 'Please sign in to continue.' }, { status: 401 });
+
   const ip =
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
     req.headers.get('x-real-ip') ||
@@ -49,6 +55,16 @@ export async function POST(req: Request) {
   const city = resolveCity(body?.city).db;
   try {
     const result = await submitForm(env, { formKey, city, source, values });
+    // Link the (anonymous) submission to the beta tester — beta layer only.
+    try {
+      await getSql()`
+        insert into nf_beta_submissions (submission_id, email)
+        values (${result.submissionId}, ${user.email})
+        on conflict (submission_id) do nothing
+      `;
+    } catch (err) {
+      console.error('[beta] submission link failed:', err);
+    }
     return Response.json(result); // { submissionId, instanceId }
   } catch (err) {
     return errorResponse(err);

@@ -75,3 +75,26 @@ create table if not exists nf_communications (
 
 create index if not exists nf_communications_undelivered_idx
   on nf_communications (created_at) where delivered_at is null;
+
+-- ── Beta layer (interim — replace when the real identity/auth system lands) ──
+-- Who is trying the app. Captured at Google sign-in (auth.ts). DELIBERATELY
+-- separate from nf_submissions so the Record of Truth stays anonymous: identity
+-- lives here, the public record never carries PII.
+create table if not exists nf_beta_testers (
+  email       text primary key,
+  name        text,
+  image       text,
+  first_seen  timestamptz not null default now(),
+  last_seen   timestamptz not null default now()
+);
+
+-- Links a submission to the beta tester who filed it — beta-only visibility
+-- ("who filed what"). Drop this table to restore full anonymity post-beta.
+create table if not exists nf_beta_submissions (
+  submission_id uuid primary key references nf_submissions(id) on delete cascade,
+  email         text not null references nf_beta_testers(email),
+  created_at    timestamptz not null default now()
+);
+
+create index if not exists nf_beta_submissions_email_idx
+  on nf_beta_submissions (email, created_at desc);

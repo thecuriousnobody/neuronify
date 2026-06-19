@@ -4,6 +4,7 @@ import { engineEnv } from '@/lib/engine';
 import { runIntakeTurn, type ChatMessage, type FieldValue } from '@/engine';
 import { rateLimit } from '@/lib/ratelimit';
 import { errorResponse } from '@/lib/engine/http';
+import { currentUser } from '@/auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -12,6 +13,10 @@ const MAX_MSG = 2000;
 const MAX_HISTORY = 24;
 
 export async function POST(req: Request) {
+  // Beta gate: must be signed in with Google.
+  const user = await currentUser();
+  if (!user) return Response.json({ error: 'Please sign in to continue.' }, { status: 401 });
+
   const ip =
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
     req.headers.get('x-real-ip') ||
