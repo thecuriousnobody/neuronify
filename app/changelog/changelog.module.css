@@ -1,0 +1,120 @@
+.wrap {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 2.5rem 1.25rem 4rem;
+  color: #e8edf2;
+}
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #e8edf2;
+  text-decoration: none;
+  font-weight: 600;
+  margin-bottom: 2rem;
+}
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #38bdf8;
+  box-shadow: 0 0 12px #38bdf8;
+}
+.h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.4rem;
+}
+.sub {
+  color: #8aa0b4;
+  margin-bottom: 2rem;
+}
+.release {
+  border-left: 2px solid #1f3a52;
+  padding-left: 1.1rem;
+  margin-bottom: 2.5rem;
+}
+.relHead {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-bottom: 0.4rem;
+}
+.tag {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #7cc0ff;
+  background: #11283c;
+  border: 1px solid #1f3a52;
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+}
+.date {
+  font-size: 0.82rem;
+  color: #7f95a8;
+}
+.relIntro {
+  color: #c4d2de;
+  line-height: 1.55;
+  margin: 0.5rem 0 1.5rem;
+}
+.section {
+  margin-bottom: 1.5rem;
+}
+.secTitle {
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7f95a8;
+  margin-bottom: 0.6rem;
+}
+.item {
+  margin-bottom: 0.7rem;
+  line-height: 1.5;
+}
+.itemTitle {
+  font-weight: 600;
+  color: #e8edf2;
+}
+.itemBody {
+  color: #9fb3c6;
+}
+.note {
+  background: #0f1822;
+  border: 1px solid #243441;
+  border-radius: 14px;
+  padding: 1rem 1.1rem;
+  margin: 1.5rem 0;
+}
+.noteLabel {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fbbf77;
+  margin-bottom: 0.4rem;
+}
+.noteBody {
+  color: #c4d2de;
+  line-height: 1.55;
+}
+.coming {
+  color: #9fb3c6;
+  line-height: 1.6;
+}
+.coming li {
+  margin-bottom: 0.3rem;
+}
+.footer {
+  margin-top: 2.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #1c2a36;
+  font-size: 0.82rem;
+  color: #7f95a8;
+}
+.footer a {
+  color: #60a5fa;
+  text-decoration: none;
+}

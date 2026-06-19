@@ -411,6 +411,7 @@ export default function Landing() {
             <div className="footer-col">
               <div className="footer-h">Explore</div>
               <a href="/preview">All screens</a>
+              <a href="/changelog">Release notes</a>
               <a href="#how">How it works</a>
               <a href="#brief">The brief</a>
             </div>
