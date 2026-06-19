@@ -112,4 +112,11 @@ export class NeonRepository implements Repository {
     `) as Row[];
     return rows.map((r) => r.id);
   }
+
+  async listAllSubmissionIds(): Promise<string[]> {
+    const rows = (await this.sql`
+      select id from nf_submissions order by submitted_at desc
+    `) as Row[];
+    return rows.map((r) => r.id);
+  }
 }

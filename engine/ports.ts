@@ -51,6 +51,9 @@ export interface Repository {
   // — Queue support: submissions with an open workflow (opened, not closed). —
   // Derive-on-read feeds the approver queue; a materialized index can come later.
   listOpenSubmissionIds(): Promise<string[]>;
+
+  // — All submissions (any status). Feeds the operator metrics aggregation. —
+  listAllSubmissionIds(): Promise<string[]>;
 }
 
 /** Delivers a communication to the submitter. The "relay", made concrete. */

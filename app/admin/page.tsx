@@ -36,6 +36,9 @@ export default async function AdminPage() {
           <span className={styles.who}>{who}</span>
         </a>
         <div className={styles.topActions}>
+          <a className={styles.promptsLink} href="/admin/metrics">
+            Metrics →
+          </a>
           <a className={styles.promptsLink} href="/admin/prompts">
             Edit agent prompts →
           </a>

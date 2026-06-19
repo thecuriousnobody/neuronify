@@ -279,6 +279,85 @@ export async function deskSubmissionDetail(
   };
 }
 
+// ── Operator metrics (Phase 5) ───────────────────────────────────────────────
+
+export interface Metrics {
+  total: number;
+  byStatus: Record<WorkflowStatus, number>;
+  internalMs: number;
+  externalMs: number;
+  avgInternalMs: number;
+  avgExternalMs: number;
+  perStep: { stepKey: string; internalMs: number; externalMs: number }[];
+  resubmitRequests: number;
+  /** Fraction of submissions that hit at least one re-submit. */
+  resubmitRate: number;
+  /** Open work waiting per department, right now. */
+  pendingByDepartment: { approver: string; count: number }[];
+}
+
+/**
+ * Aggregate timing + flow metrics across ALL submissions. The measurement
+ * spine's payoff: where does time actually go (city vs citizen), per step, and
+ * who's holding the queue right now. Derive-on-read — fine at prototype scale.
+ */
+export async function computeMetrics(env: EngineEnv): Promise<Metrics> {
+  const ids = await env.repo.listAllSubmissionIds();
+  const now = env.clock.now();
+  const byStatus: Record<WorkflowStatus, number> = { open: 0, completed: 0, denied: 0 };
+  const perStep = new Map<string, { internalMs: number; externalMs: number }>();
+  const pending = new Map<string, number>();
+  let internalMs = 0;
+  let externalMs = 0;
+  let resubmitRequests = 0;
+  let withResubmit = 0;
+
+  for (const id of ids) {
+    const loaded = await loadInstance(env, id);
+    if (!loaded) continue;
+    byStatus[loaded.instance.status]++;
+
+    const t = computeTiming(loaded.events, now);
+    internalMs += t.internalMs;
+    externalMs += t.externalMs;
+    for (const [k, v] of Object.entries(t.byStep)) {
+      const cur = perStep.get(k) ?? { internalMs: 0, externalMs: 0 };
+      cur.internalMs += v.internalMs;
+      cur.externalMs += v.externalMs;
+      perStep.set(k, cur);
+    }
+
+    const resubmits = loaded.events.filter(
+      (e) => e.type === 'decision.recorded' && (e.payload as Record<string, unknown>).decision === 'requires_resubmit',
+    ).length;
+    resubmitRequests += resubmits;
+    if (resubmits > 0) withResubmit++;
+
+    if (loaded.instance.status === 'open') {
+      const open = loaded.instance.steps.find((s) => s.status === 'open');
+      open?.approvals
+        .filter((a) => a.status === 'pending')
+        .forEach((a) => pending.set(a.approver, (pending.get(a.approver) ?? 0) + 1));
+    }
+  }
+
+  const n = ids.length;
+  return {
+    total: n,
+    byStatus,
+    internalMs,
+    externalMs,
+    avgInternalMs: n ? Math.round(internalMs / n) : 0,
+    avgExternalMs: n ? Math.round(externalMs / n) : 0,
+    perStep: [...perStep.entries()].map(([stepKey, v]) => ({ stepKey, ...v })),
+    resubmitRequests,
+    resubmitRate: n ? withResubmit / n : 0,
+    pendingByDepartment: [...pending.entries()]
+      .map(([approver, count]) => ({ approver, count }))
+      .sort((a, b) => b.count - a.count),
+  };
+}
+
 /**
  * Record a department's decision from the console. The caller passes the
  * department from the VERIFIED session cookie (never the request body), and we

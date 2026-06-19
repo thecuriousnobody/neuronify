@@ -65,6 +65,10 @@ export class InMemoryRepository implements Repository {
     }
     return [...opened].filter((id) => !closed.has(id));
   }
+
+  async listAllSubmissionIds(): Promise<string[]> {
+    return [...this.submissions.keys()];
+  }
 }
 
 /** Notifier that just records what would be delivered. */

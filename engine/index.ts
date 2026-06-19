@@ -23,6 +23,7 @@ export {
   deskQueue,
   deskSubmissionDetail,
   deskDecide,
+  computeMetrics,
 } from './workflow/service';
 export type {
   LoadedInstance,
@@ -30,6 +31,7 @@ export type {
   QueueItem,
   DeskDetail,
   TimelineEntry,
+  Metrics,
 } from './workflow/service';
 
 // Timing
