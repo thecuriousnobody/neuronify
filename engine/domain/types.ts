@@ -213,6 +213,7 @@ export type ActorSide = 'external' | 'internal' | 'system';
 
 export type AuditEventType =
   | 'submission.created'
+  | 'submission.revised' // citizen edited bounced fields on a re-submit (append-only)
   | 'workflow.opened'
   | 'step.opened'
   | 'decision.recorded'

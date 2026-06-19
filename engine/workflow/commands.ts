@@ -20,6 +20,7 @@ import type {
   CommunicationIntent,
   CommunicationReason,
   DecisionInput,
+  FieldValue,
   Submission,
   WorkflowDefinition,
   WorkflowInstance,
@@ -285,4 +286,57 @@ export function fulfillResubmit(
     ],
     communications: [],
   };
+}
+
+/**
+ * The citizen edits the bounced fields and resubmits. Appends a `submission.revised`
+ * event (old→new, never overwriting history), then fulfills EVERY awaiting-resubmit
+ * approval on the open step (flipping each back to pending for re-review). Returns
+ * the merged field values for the caller to persist as the new materialized state.
+ *
+ * The citizen may only edit fields that were actually requested (the union of the
+ * bounced approvals' scopes) — anything else is rejected.
+ */
+export function reviseAndResubmit(
+  submission: Submission,
+  instance: WorkflowInstance,
+  input: { newValues: FieldValue[]; actor?: string },
+  ctx: CommandCtx,
+): CommandResult & { values: FieldValue[] } {
+  if (instance.status !== 'open') fail('WORKFLOW_NOT_OPEN', `workflow is ${instance.status}`);
+  const step = instance.steps.find((s) => s.status === 'open');
+  if (!step) fail('STEP_NOT_OPEN', 'no step is open');
+
+  const bounced = step!.approvals.filter((a) => a.status === 'awaiting_resubmit');
+  if (bounced.length === 0) fail('APPROVAL_NOT_AWAITING_RESUBMIT', 'nothing is awaiting your re-submit');
+
+  const allowed = new Set(bounced.flatMap((a) => a.resubmitScope ?? []));
+  const byKey = new Map(submission.values.map((v) => [v.fieldKey, { ...v }]));
+  const changes: { fieldKey: string; from: unknown; to: unknown }[] = [];
+
+  for (const nv of input.newValues) {
+    if (!allowed.has(nv.fieldKey))
+      fail('RESUBMIT_SCOPE_OUT_OF_BOUNDS', `"${nv.fieldKey}" was not requested for re-submit`);
+    const existing = byKey.get(nv.fieldKey);
+    const from = existing?.value ?? null;
+    if (from !== nv.value) {
+      changes.push({ fieldKey: nv.fieldKey, from, to: nv.value });
+      byKey.set(nv.fieldKey, { fieldKey: nv.fieldKey, value: nv.value, ...(existing?.attachmentIds ? { attachmentIds: existing.attachmentIds } : {}) });
+    }
+  }
+
+  const actor = input.actor ?? 'citizen';
+  const base = { submissionId: instance.submissionId, workflowInstanceId: instance.id };
+  const out: CommandResult = { events: [], communications: [] };
+
+  out.events.push(
+    event(ctx, { ...base, type: 'submission.revised', actor, actorSide: 'external', payload: { changes } }),
+  );
+  for (const a of bounced) {
+    out.events.push(
+      event(ctx, { ...base, type: 'resubmit.fulfilled', actor, actorSide: 'external', payload: { stepKey: step!.stepKey, approver: a.approver } }),
+    );
+  }
+
+  return { ...out, values: [...byKey.values()] };
 }

@@ -18,6 +18,7 @@ export {
   submitForm,
   recordDecision,
   recordResubmit,
+  recordRevisionAndResubmit,
   loadInstance,
   getInstanceView,
   deskQueue,

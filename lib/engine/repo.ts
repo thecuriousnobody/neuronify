@@ -43,6 +43,10 @@ export class NeonRepository implements Repository {
     `;
   }
 
+  async updateSubmissionValues(id: string, values: Submission['values']): Promise<void> {
+    await this.sql`update nf_submissions set values = ${JSON.stringify(values)} where id = ${id}`;
+  }
+
   async getSubmission(id: string): Promise<Submission | null> {
     const rows = (await this.sql`
       select id, form_key, form_version, city, source, submitted_at, values

@@ -150,6 +150,11 @@ export default function IntakePage() {
           <a className={styles.trackLink} href={`/track/${submissionId}`}>
             Track its progress →
           </a>
+          <div>
+            <a className={styles.trackLink} href="/reports" style={{ marginTop: '0.5rem' }}>
+              Your reports →
+            </a>
+          </div>
         </div>
       </main>
     );

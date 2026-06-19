@@ -43,6 +43,9 @@ export interface Repository {
   // — Submissions (the Record of Truth root) —
   saveSubmission(submission: Submission): Promise<void>;
   getSubmission(id: string): Promise<Submission | null>;
+  // Update the materialized field values (after a citizen revision). The change
+  // itself is recorded append-only in the audit log; this updates the fast read.
+  updateSubmissionValues(id: string, values: Submission['values']): Promise<void>;
 
   // — Audit ledger (append-only). getEvents returns them in insertion order. —
   appendEvents(events: AuditEvent[]): Promise<void>;

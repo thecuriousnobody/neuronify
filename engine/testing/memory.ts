@@ -49,6 +49,10 @@ export class InMemoryRepository implements Repository {
     const s = this.submissions.get(id);
     return s ? structuredClone(s) : null;
   }
+  async updateSubmissionValues(id: string, values: Submission['values']): Promise<void> {
+    const s = this.submissions.get(id);
+    if (s) s.values = structuredClone(values);
+  }
   async appendEvents(events: AuditEvent[]): Promise<void> {
     for (const e of events) this.events.push(structuredClone(e));
   }

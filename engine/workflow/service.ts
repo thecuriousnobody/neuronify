@@ -22,7 +22,7 @@ import type {
 } from '../domain/types';
 import type { EngineEnv } from '../ports';
 import { computeTiming, type TimingReport } from '../timing/index';
-import { decide, fulfillResubmit, startWorkflow, type CommandResult } from './commands';
+import { decide, fulfillResubmit, reviseAndResubmit, startWorkflow, type CommandResult } from './commands';
 import { deriveInstance } from './state';
 import { fail } from './errors';
 
@@ -118,6 +118,23 @@ export async function recordResubmit(
   const loaded = await loadInstance(env, submissionId);
   if (!loaded) fail('INSTANCE_NOT_FOUND', `no workflow for submission "${submissionId}"`);
   await commit(env, fulfillResubmit(loaded!.instance, input, env));
+}
+
+/**
+ * The citizen edits the bounced fields and resubmits. Appends the revision +
+ * resubmit events (append-only), then updates the materialized values. Ownership
+ * (is this the citizen's submission?) is enforced by the caller in the app layer.
+ */
+export async function recordRevisionAndResubmit(
+  env: EngineEnv,
+  submissionId: string,
+  newValues: FieldValue[],
+): Promise<void> {
+  const loaded = await loadInstance(env, submissionId);
+  if (!loaded) fail('INSTANCE_NOT_FOUND', `no workflow for submission "${submissionId}"`);
+  const result = reviseAndResubmit(loaded!.submission, loaded!.instance, { newValues }, env);
+  await commit(env, result);
+  await env.repo.updateSubmissionValues(submissionId, result.values);
 }
 
 /** Read model: current state + live timing (in-flight intervals banked to now). */
