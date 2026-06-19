@@ -8,7 +8,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "db:setup": "node scripts/setup-db.mjs"
+    "test": "node --import tsx --test $(find engine -name '*.test.ts')",
+    "typecheck": "tsc --noEmit",
+    "db:setup": "node scripts/setup-db.mjs",
+    "engine:db:setup": "node scripts/setup-engine-db.mjs",
+    "engine:seed": "node scripts/seed-engine.mjs",
+    "engine:smoke": "node --import tsx scripts/smoke-engine.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
@@ -25,6 +30,7 @@
     "@types/qrcode": "^1.5.6",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
+    "tsx": "^4.22.4",
     "typescript": "^5.5.3"
   }
 }

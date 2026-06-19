@@ -1,0 +1,232 @@
+.wrap {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 1rem 1rem 1.5rem;
+  color: #e8edf2;
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.25rem 0 0.75rem;
+}
+.title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.city {
+  font-size: 0.8rem;
+  color: #8aa0b4;
+}
+
+/* ── chat ── */
+.thread {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.5rem 0;
+  overflow-y: auto;
+}
+.msg {
+  max-width: 85%;
+  padding: 0.6rem 0.8rem;
+  border-radius: 14px;
+  line-height: 1.4;
+  font-size: 0.95rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.assistant {
+  align-self: flex-start;
+  background: #1a2733;
+  border: 1px solid #243441;
+  border-bottom-left-radius: 4px;
+}
+.user {
+  align-self: flex-end;
+  background: #2563eb;
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.thinking {
+  align-self: flex-start;
+  color: #7f95a8;
+  font-size: 0.85rem;
+  padding: 0.4rem 0.2rem;
+}
+
+/* ── composer ── */
+.composer {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-end;
+  padding-top: 0.6rem;
+  border-top: 1px solid #1c2a36;
+}
+.input {
+  flex: 1;
+  resize: none;
+  background: #0f1822;
+  border: 1px solid #26384a;
+  color: #e8edf2;
+  border-radius: 12px;
+  padding: 0.6rem 0.8rem;
+  font: inherit;
+  font-size: 0.95rem;
+  max-height: 120px;
+}
+.input:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+.iconBtn,
+.sendBtn {
+  flex: 0 0 auto;
+  height: 44px;
+  min-width: 44px;
+  border-radius: 12px;
+  border: 1px solid #26384a;
+  background: #14202b;
+  color: #cfe0ee;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+.sendBtn {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+  font-weight: 600;
+  padding: 0 1rem;
+}
+.sendBtn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.iconBtn.listening {
+  border-color: #ef4444;
+  color: #fca5a5;
+  animation: pulse 3s ease-in-out infinite;
+}
+
+/* ── review ── */
+.reviewCard {
+  background: #0f1822;
+  border: 1px solid #243441;
+  border-radius: 16px;
+  padding: 1rem;
+  margin-top: 0.75rem;
+}
+.reviewHead {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+.reviewSub {
+  font-size: 0.82rem;
+  color: #8aa0b4;
+  margin-bottom: 0.9rem;
+}
+.field {
+  margin-bottom: 0.8rem;
+}
+.label {
+  display: block;
+  font-size: 0.8rem;
+  color: #9fb3c6;
+  margin-bottom: 0.3rem;
+}
+.req {
+  color: #f59e0b;
+}
+.fieldInput,
+.fieldSelect {
+  width: 100%;
+  background: #0b121a;
+  border: 1px solid #26384a;
+  color: #e8edf2;
+  border-radius: 10px;
+  padding: 0.5rem 0.65rem;
+  font: inherit;
+  font-size: 0.92rem;
+}
+.attachNote {
+  font-size: 0.8rem;
+  color: #7f95a8;
+  font-style: italic;
+}
+.error {
+  color: #fca5a5;
+  font-size: 0.85rem;
+  margin: 0.5rem 0;
+}
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.primary {
+  flex: 1;
+  background: #16a34a;
+  border: none;
+  color: #fff;
+  font-weight: 600;
+  border-radius: 12px;
+  padding: 0.7rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+.primary:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.secondary {
+  background: transparent;
+  border: 1px solid #2c3e4f;
+  color: #b8c8d6;
+  border-radius: 12px;
+  padding: 0.7rem 1rem;
+  cursor: pointer;
+}
+
+/* ── done ── */
+.done {
+  text-align: center;
+  margin: auto 0;
+  padding: 2rem 1rem;
+}
+.check {
+  font-size: 2.5rem;
+}
+.doneTitle {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 0.5rem 0;
+}
+.doneText {
+  color: #9fb3c6;
+  line-height: 1.5;
+}
+.trackLink {
+  display: inline-block;
+  margin-top: 1rem;
+  color: #60a5fa;
+  text-decoration: none;
+  border: 1px solid #1e3a5f;
+  border-radius: 10px;
+  padding: 0.5rem 1rem;
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .iconBtn.listening { animation: none; }
+}

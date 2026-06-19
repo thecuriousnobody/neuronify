@@ -1,0 +1,84 @@
+.wrap {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 2.5rem;
+  color: #e8edf2;
+}
+.eyebrow {
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7f95a8;
+}
+.status {
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin: 0.2rem 0 0.1rem;
+}
+.meta {
+  font-size: 0.82rem;
+  color: #8aa0b4;
+  margin-bottom: 1.25rem;
+}
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.step {
+  background: #0f1822;
+  border: 1px solid #243441;
+  border-radius: 14px;
+  padding: 0.8rem 0.9rem;
+}
+.stepHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.stepTitle {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.badge {
+  font-size: 0.72rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.bWaiting { background: #1c2530; color: #93a7b8; }
+.bActive { background: #14304a; color: #7cc0ff; }
+.bDone { background: #14331f; color: #6ee7a0; }
+.bNeedsYou { background: #3a2a12; color: #fbbf77; }
+.bDeclined { background: #3a1717; color: #fca5a5; }
+.approvals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+}
+.appr {
+  font-size: 0.78rem;
+  color: #9fb3c6;
+  background: #0b121a;
+  border: 1px solid #1f2e3b;
+  border-radius: 8px;
+  padding: 0.25rem 0.5rem;
+}
+.timing {
+  margin-top: 1.5rem;
+  display: flex;
+  gap: 0.75rem;
+}
+.tcard {
+  flex: 1;
+  background: #0f1822;
+  border: 1px solid #243441;
+  border-radius: 14px;
+  padding: 0.8rem;
+  text-align: center;
+}
+.tval { font-size: 1.1rem; font-weight: 600; }
+.tlabel { font-size: 0.74rem; color: #8aa0b4; margin-top: 0.2rem; }
+.notFound { text-align: center; padding: 3rem 1rem; color: #9fb3c6; }
