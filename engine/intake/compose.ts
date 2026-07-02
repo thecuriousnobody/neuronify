@@ -34,7 +34,9 @@ function titleCase(key: string): string {
  */
 export function composeGraph(cls: Classification, opts: ComposeOptions): WorkflowGraph {
   const dept = cls.department;
-  const reviewKey = `${dept}_review`;
+  // Stable node key (independent of the department) so a staff light-edit can
+  // swap the approver without rewriting the edges that reference this node.
+  const reviewKey = 'departmental_review';
   return {
     key: `${opts.formKey}_flow`,
     title: `${titleCase(opts.formKey.replace(/_/g, ' '))} — ${titleCase(dept)}`,

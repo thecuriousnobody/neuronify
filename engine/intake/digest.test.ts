@@ -75,7 +75,7 @@ test('compose → compile: the composed graph is one the engine accepts', async 
   // The whole point: the agent-composed graph compiles to an executable flow.
   const def = compileGraph(graph);
   assert.equal(def.steps.length, 1);
-  assert.equal(def.steps[0].key, 'public_works_review');
+  assert.equal(def.steps[0].key, 'departmental_review');
   assert.equal(def.steps[0].approvals[0].approver, 'public_works');
   assert.deepEqual(def.steps[0].approvals[0].scope, ['location', 'hazard']);
 });
