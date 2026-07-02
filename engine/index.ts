@@ -48,3 +48,9 @@ export type { TimingReport, TimingBucket, ApprovalTiming } from './timing/index'
 // Intake (voice→form conversation)
 export { runIntakeTurn } from './intake/conversation';
 export type { ChatMessage, ChatRole, IntakeTurn } from './intake/conversation';
+
+// Digestion pipeline (single voice drop → fill → classify → compose)
+export { digestDrop, extractFields, classify, SEVERITIES } from './intake/digest';
+export type { DigestResult, Classification, Severity } from './intake/digest';
+export { composeGraph } from './intake/compose';
+export type { ComposeOptions } from './intake/compose';

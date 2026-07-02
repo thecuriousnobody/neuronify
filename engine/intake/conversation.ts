@@ -54,7 +54,7 @@ function coerce(field: FormField, raw: unknown): FieldValuePrimitive | undefined
   }
 }
 
-function mergeDraft(
+export function mergeDraft(
   form: FormDefinition,
   prior: FieldValue[],
   extracted: Record<string, unknown>,
@@ -69,7 +69,7 @@ function mergeDraft(
   return [...byKey.values()];
 }
 
-function missingRequired(form: FormDefinition, draft: FieldValue[]): string[] {
+export function missingRequired(form: FormDefinition, draft: FieldValue[]): string[] {
   const have = new Set(
     draft.filter((v) => v.value !== '' && v.value != null).map((v) => v.fieldKey),
   );
