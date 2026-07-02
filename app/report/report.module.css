@@ -107,6 +107,48 @@
 .send:hover:not(:disabled) { filter: brightness(1.08); }
 .send:disabled { opacity: 0.55; cursor: default; }
 
+/* "what we understood" preview card */
+.understood {
+  text-align: left;
+  background: var(--card);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.understoodHead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.understoodEyebrow {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cyan);
+}
+.sevChip {
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 2px 10px;
+  color: #04121c;
+  background: var(--muted);
+}
+.sev_safety_critical { background: #ef4444; color: #fff; }
+.sev_high { background: #ff8a5c; }
+.sev_medium { background: #e0a94a; }
+.sev_low { background: var(--muted); }
+
+.understoodCat { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+.understoodList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+.understoodRow { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 14px; }
+.uLabel { color: var(--muted); flex-shrink: 0; }
+.uValue { color: var(--text); text-align: right; }
+.uMissing {
+  color: #fbbf77;
+  font-size: 12px;
+  font-style: italic;
+  text-align: right;
+}
+
 .error {
   margin-top: 14px;
   color: #fca5a5;

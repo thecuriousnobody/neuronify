@@ -60,6 +60,10 @@ ${fields}
 Rules:
 - Extract a value ONLY when the transcript actually states it. NEVER invent, assume, or guess.
 - Leave a field out entirely if the resident didn't give it. Do not fill attachment fields.
+- For a field of type "location", extract ONLY an actual PLACE — a street, intersection,
+  address, or named landmark. If the resident described the problem but never said WHERE it
+  is, leave the location field out entirely. Do NOT put the thing being reported (e.g. "a
+  broken sidewalk") into the location field.
 - Use the exact field keys above.
 
 OUTPUT RULES — CRITICAL: Output ONLY raw JSON. No markdown, no code fences, no text before or after. First character {, last character }.
