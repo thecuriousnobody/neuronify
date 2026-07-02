@@ -76,6 +76,23 @@ create table if not exists nf_communications (
 create index if not exists nf_communications_undelivered_idx
   on nf_communications (created_at) where delivered_at is null;
 
+-- Pending intakes — the resident's inbox BEFORE the staff confirm gate. A voice
+-- drop is transcribed and parked here; a staffer reviews it on /desk/intake,
+-- digests + confirms, and only THEN does it become a submission with a workflow.
+-- Deliberately app-side (not the engine's Record of Truth): nothing here is
+-- audited yet. Deleted once promoted to a submission (or dismissed).
+create table if not exists nf_pending_intakes (
+  id          uuid primary key default gen_random_uuid(),
+  form_key    text not null,
+  city        text not null,
+  transcript  text not null,
+  source      text not null default 'voice',      -- 'voice' | 'text'
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists nf_pending_intakes_created_idx
+  on nf_pending_intakes (created_at desc);
+
 -- ── Beta layer (interim — replace when the real identity/auth system lands) ──
 -- Who is trying the app. Captured at Google sign-in (auth.ts). DELIBERATELY
 -- separate from nf_submissions so the Record of Truth stays anonymous: identity

@@ -6,7 +6,7 @@
 // freezes the graph and opens the workflow. Viewer + light edit, not an authoring
 // canvas — the agent composed it, the human is accountable for launching it.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import styles from './intake.module.css';
 
 const SEVERITIES = ['safety_critical', 'high', 'medium', 'low'] as const;
@@ -40,6 +40,8 @@ const NODE_H = 66;
 const SAMPLE =
   "There's a deep pothole at Main Street and 5th Avenue. It's taking up almost the whole right lane and cars keep swerving into oncoming traffic to miss it. It's definitely dangerous — someone's going to get hurt.";
 
+type Pending = { id: string; formKey: string; city: string; transcript: string; source: string; createdAt: string };
+
 export default function IntakeConsole() {
   const [transcript, setTranscript] = useState('');
   const [digesting, setDigesting] = useState(false);
@@ -50,8 +52,32 @@ export default function IntakeConsole() {
   const [error, setError] = useState<string | null>(null);
   const [launching, setLaunching] = useState(false);
   const [launchedId, setLaunchedId] = useState<string | null>(null);
+  const [queue, setQueue] = useState<Pending[]>([]);
+  const [pendingId, setPendingId] = useState<string | null>(null);
 
-  async function digest() {
+  async function loadQueue() {
+    try {
+      const res = await fetch('/api/v2/pending');
+      if (!res.ok) return;
+      const data = await res.json();
+      setQueue(Array.isArray(data.items) ? data.items : []);
+    } catch {
+      /* ignore */
+    }
+  }
+  useEffect(() => { loadQueue(); }, []);
+
+  function reviewPending(p: Pending) {
+    setPendingId(p.id);
+    setTranscript(p.transcript);
+    setProposal(null);
+    setLaunchedId(null);
+    digest(p.transcript);
+  }
+
+  async function digest(t?: string) {
+    const source = (t ?? transcript).trim();
+    if (!source) return;
     setError(null);
     setLaunchedId(null);
     setDigesting(true);
@@ -59,7 +85,7 @@ export default function IntakeConsole() {
       const res = await fetch('/api/v2/digest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ formKey: 'pothole_report', transcript }),
+        body: JSON.stringify({ formKey: 'pothole_report', transcript: source }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -100,7 +126,7 @@ export default function IntakeConsole() {
       const res = await fetch('/api/v2/confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ formKey: proposal.form.key, values, graph: liveGraph, source: 'voice' }),
+        body: JSON.stringify({ formKey: proposal.form.key, values, graph: liveGraph, source: 'voice', pendingId }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -108,6 +134,11 @@ export default function IntakeConsole() {
         return;
       }
       setLaunchedId(data.submissionId);
+      // Clear the just-launched drop from the queue.
+      if (pendingId) {
+        setQueue((q) => q.filter((p) => p.id !== pendingId));
+        setPendingId(null);
+      }
     } catch {
       setError('Network error.');
     } finally {
@@ -132,6 +163,24 @@ export default function IntakeConsole() {
         <p className={styles.sub}>The agent digests a resident&apos;s report. You confirm what it understood and where it goes — then launch.</p>
       </header>
 
+      {/* Queue — pending resident drops awaiting review */}
+      {queue.length > 0 && (
+        <section className={styles.card}>
+          <div className={styles.queueHead}>
+            <span className={styles.label}>Waiting for review</span>
+            <span className={styles.queueCount}>{queue.length}</span>
+          </div>
+          <ul className={styles.queue}>
+            {queue.map((p) => (
+              <li key={p.id} className={`${styles.queueItem} ${pendingId === p.id ? styles.queueActive : ''}`}>
+                <div className={styles.queueText}>{p.transcript}</div>
+                <button className={styles.review} onClick={() => reviewPending(p)} type="button">Review →</button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {/* Step 1 — the drop */}
       <section className={styles.card}>
         <label className={styles.label} htmlFor="t">Resident&apos;s report (transcript)</label>
@@ -145,7 +194,7 @@ export default function IntakeConsole() {
         />
         <div className={styles.row}>
           <button className={styles.ghost} onClick={() => setTranscript(SAMPLE)} type="button">Use sample</button>
-          <button className={styles.primary} onClick={digest} disabled={digesting || !transcript.trim()} type="button">
+          <button className={styles.primary} onClick={() => digest()} disabled={digesting || !transcript.trim()} type="button">
             {digesting ? 'Digesting…' : 'Digest'}
           </button>
         </div>

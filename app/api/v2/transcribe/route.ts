@@ -10,7 +10,6 @@
 // limit, and an explicit body-size cap so a runaway upload can't burn credits.
 
 import { rateLimit } from '@/lib/ratelimit';
-import { currentUser } from '@/auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -19,10 +18,8 @@ export const dynamic = 'force-dynamic';
 const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
 
 export async function POST(req: Request) {
-  // Beta gate: must be signed in (matches /api/v2/intake).
-  const user = await currentUser();
-  if (!user) return Response.json({ error: 'Please sign in to continue.' }, { status: 401 });
-
+  // Anonymous, mic-first (like v1 /speak): no sign-in wall on the resident drop.
+  // Abuse is bounded by the per-IP rate limit + body cap below, not by auth.
   const ip =
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
     req.headers.get('x-real-ip') ||

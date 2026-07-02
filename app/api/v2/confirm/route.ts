@@ -10,6 +10,7 @@ import { engineEnv } from '@/lib/engine';
 import { submitGraph } from '@/engine';
 import type { WorkflowGraph, FieldValue } from '@/engine';
 import { currentDepartment } from '@/lib/desk-auth';
+import { deletePending } from '@/lib/pending';
 import { rateLimit } from '@/lib/ratelimit';
 import { errorResponse } from '@/lib/engine/http';
 
@@ -37,6 +38,7 @@ export async function POST(req: Request) {
   const formKey = String(body?.formKey ?? '').trim();
   const graph = body?.graph as WorkflowGraph | undefined;
   const source = body?.source === 'text' ? 'text' : 'voice';
+  const pendingId = typeof body?.pendingId === 'string' ? body.pendingId : null;
   if (!formKey) return Response.json({ error: 'Missing formKey.' }, { status: 400 });
   if (!graph || !Array.isArray(graph.nodes) || !Array.isArray(graph.edges))
     return Response.json({ error: 'Missing or malformed graph.' }, { status: 400 });
@@ -58,6 +60,8 @@ export async function POST(req: Request) {
       values,
       graph,
     });
+    // Promoted to a submission — clear it from the pending queue (best-effort).
+    if (pendingId) await deletePending(pendingId).catch(() => {});
     return Response.json({ submissionId });
   } catch (err) {
     return errorResponse(err);
