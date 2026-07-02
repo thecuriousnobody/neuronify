@@ -85,3 +85,24 @@ test('extractFields never invents: an empty transcript yields no values', async 
   const values = await extractFields(llm, potholeForm, 'um, hello?');
   assert.equal(values.length, 0);
 });
+
+test('vague non-places are dropped from location fields (code-side guard)', async () => {
+  // The model disobeys the prompt and extracts "a block" — the guard drops it.
+  const llm = new ScriptedLLM([
+    JSON.stringify({ extracted: { location: 'a block', hazard: true } }),
+  ]);
+  const values = await extractFields(llm, potholeForm, 'the whole block is dark');
+  assert.equal(values.find((v) => v.fieldKey === 'location'), undefined, '"a block" is not a place');
+  assert.equal(values.find((v) => v.fieldKey === 'hazard')?.value, true, 'other fields unaffected');
+
+  // Real places survive: proper nouns and street numbers.
+  const llm2 = new ScriptedLLM([
+    JSON.stringify({ extracted: { location: 'the junction of Knoxville Avenue and Giles Avenue' } }),
+  ]);
+  const values2 = await extractFields(llm2, potholeForm, '...');
+  assert.ok(values2.find((v) => v.fieldKey === 'location'), 'proper-noun place survives');
+
+  const llm3 = new ScriptedLLM([JSON.stringify({ extracted: { location: '512 main street' } })]);
+  const values3 = await extractFields(llm3, potholeForm, '...');
+  assert.ok(values3.find((v) => v.fieldKey === 'location'), 'numbered address survives');
+});

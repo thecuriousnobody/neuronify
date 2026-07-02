@@ -10,8 +10,22 @@ import { resolveCity, type City } from '@/lib/cities';
 import styles from './report.module.css';
 
 type Phase = 'idle' | 'transcribing' | 'previewing' | 'preview' | 'sending' | 'done';
-type Understood = { key: string; label: string; value: unknown; missing: boolean };
-type Preview = { understood: Understood[]; category: string; severity: string; department: string };
+type Understood = {
+  key: string;
+  label: string;
+  type: string;
+  choices: string[] | null;
+  value: unknown;
+  missing: boolean;
+};
+type GeoMatch = { matched: string; lat: number; lon: number };
+type Preview = {
+  understood: Understood[];
+  locationMatch: GeoMatch | null;
+  category: string;
+  severity: string;
+  department: string;
+};
 
 const SEV_LABEL: Record<string, string> = {
   safety_critical: 'Safety-critical',
@@ -20,6 +34,46 @@ const SEV_LABEL: Record<string, string> = {
   low: 'Low',
 };
 const pretty = (k: string) => k.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+/** Tap-to-answer chips for a missing field: Yes/No for booleans, the choices for
+ *  choice fields, and a short inline input for locations/free text. */
+function GapFiller({ field, onAnswer }: { field: Understood; onAnswer: (label: string, answer: string) => void }) {
+  const [custom, setCustom] = useState('');
+  const chips =
+    field.type === 'boolean' ? ['Yes', 'No'] : field.choices && field.choices.length ? field.choices : null;
+
+  if (chips) {
+    return (
+      <div className={styles.chips}>
+        {chips.map((c) => (
+          <button key={c} type="button" className={styles.chip} onClick={() => onAnswer(field.label, c)}>
+            {c}
+          </button>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <form
+      className={styles.gapForm}
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (custom.trim()) onAnswer(field.label, custom.trim());
+      }}
+    >
+      <input
+        className={styles.gapInput}
+        value={custom}
+        onChange={(e) => setCustom(e.target.value)}
+        placeholder={field.type === 'location' ? 'e.g. Knoxville Ave & Giles Ave' : 'Add it here…'}
+        aria-label={field.label}
+      />
+      <button type="submit" className={styles.chip} disabled={!custom.trim()}>
+        Add
+      </button>
+    </form>
+  );
+}
 
 export default function Report() {
   const [text, setText] = useState('');
@@ -87,8 +141,8 @@ export default function Report() {
     }
   }
 
-  async function review() {
-    const value = text.trim();
+  async function review(override?: string) {
+    const value = (override ?? text).trim();
     if (!value) {
       setError('Tell the city what’s going on first.');
       return;
@@ -157,6 +211,17 @@ export default function Report() {
     setPhase('idle');
   }
 
+  // Answer a gap with a tap (or a short inline input). The answer is appended to
+  // the transcript as a clean Q/A line — the transcript stays the single source
+  // of truth (staff digest re-reads it) — then the understanding re-checks.
+  function answerGap(label: string, answer: string) {
+    const addition = `\nQ: ${label} A: ${answer}`;
+    const next = `${text.trim()}${addition}`;
+    setText(next);
+    setPreview(null);
+    review(next);
+  }
+
   return (
     <main className={styles.shell}>
       <div className={styles.glow} />
@@ -218,12 +283,31 @@ export default function Report() {
                 <div className={styles.understoodCat}>{pretty(preview.category)} · routed to {pretty(preview.department)}</div>
                 <ul className={styles.understoodList}>
                   {preview.understood.map((u) => (
-                    <li key={u.key} className={styles.understoodRow}>
-                      <span className={styles.uLabel}>{u.label}</span>
-                      {u.missing ? (
-                        <span className={styles.uMissing}>we didn’t catch this — add it above</span>
-                      ) : (
-                        <span className={styles.uValue}>{u.value === true ? 'Yes' : u.value === false ? 'No' : String(u.value)}</span>
+                    <li key={u.key} className={styles.understoodItem}>
+                      <div className={styles.understoodRow}>
+                        <span className={styles.uLabel}>{u.label}</span>
+                        {u.missing ? (
+                          <span className={styles.uMissing}>we didn’t catch this</span>
+                        ) : (
+                          <span className={styles.uValue}>{u.value === true ? 'Yes' : u.value === false ? 'No' : String(u.value)}</span>
+                        )}
+                      </div>
+                      {u.missing && <GapFiller field={u} onAnswer={answerGap} />}
+                      {!u.missing && u.type === 'location' && preview.locationMatch && (
+                        <div className={styles.matchLine}>
+                          <span className={styles.matchPin}>◎</span>
+                          <span>
+                            ≈ {preview.locationMatch.matched}{' '}
+                            <a
+                              className={styles.matchLink}
+                              href={`https://www.openstreetmap.org/?mlat=${preview.locationMatch.lat}&mlon=${preview.locationMatch.lon}#map=17/${preview.locationMatch.lat}/${preview.locationMatch.lon}`}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              map ↗
+                            </a>
+                          </span>
+                        </div>
                       )}
                     </li>
                   ))}
@@ -234,7 +318,7 @@ export default function Report() {
               </button>
             </>
           ) : (
-            <button type="button" className={styles.send} onClick={review} disabled={phase === 'transcribing' || phase === 'previewing'}>
+            <button type="button" className={styles.send} onClick={() => review()} disabled={phase === 'transcribing' || phase === 'previewing'}>
               {phase === 'previewing' ? 'Reading your report…' : 'See what we understood →'}
             </button>
           )}

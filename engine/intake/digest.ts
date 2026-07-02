@@ -63,13 +63,26 @@ Rules:
 - For a field of type "location", extract ONLY an actual PLACE — a street, intersection,
   address, or named landmark. If the resident described the problem but never said WHERE it
   is, leave the location field out entirely. Do NOT put the thing being reported (e.g. "a
-  broken sidewalk") into the location field.
+  broken sidewalk") into the location field, and do NOT extract vague non-places like
+  "my street", "a block", or "near my house" — those count as not given.
 - Use the exact field keys above.
 
 OUTPUT RULES — CRITICAL: Output ONLY raw JSON. No markdown, no code fences, no text before or after. First character {, last character }.
 
 Schema:
 { "extracted": { "<fieldKey>": <value> } }`;
+}
+
+/**
+ * A location value must look like an actual place: a proper noun ("Knoxville
+ * Avenue") or a number ("512 Main St"). Vague references ("a block", "my
+ * street") fail this and are dropped — the prompt asks the model not to extract
+ * them, but code is the enforcement (prompts are suggestions).
+ */
+function looksLikePlace(value: unknown): boolean {
+  const s = String(value ?? '').trim();
+  if (!s) return false;
+  return /\d/.test(s) || /(?:^|[\s,&])[A-Z][a-z]/.test(s.slice(0, 1).toLowerCase() + s.slice(1));
 }
 
 /** Single-shot fill: pull every stated field from the whole transcript at once. */
@@ -84,7 +97,10 @@ export async function extractFields(
     maxTokens: 500,
   });
   const parsed = parseLooseJSON<{ extracted?: Record<string, unknown> }>(raw);
-  return mergeDraft(form, [], parsed.extracted ?? {});
+  const merged = mergeDraft(form, [], parsed.extracted ?? {});
+  // Deterministic guard: vague non-places don't count as a location.
+  const locationKeys = new Set(form.fields.filter((f) => f.type === 'location').map((f) => f.key));
+  return merged.filter((v) => !locationKeys.has(v.fieldKey) || looksLikePlace(v.value));
 }
 
 // ── classify ─────────────────────────────────────────────────────────────────

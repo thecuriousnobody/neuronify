@@ -7,6 +7,7 @@
 import { engineEnv } from '@/lib/engine';
 import { digestDrop } from '@/engine';
 import { departments } from '@/lib/desk-auth';
+import { geocodeApprox } from '@/lib/geocode';
 import { rateLimit } from '@/lib/ratelimit';
 import { errorResponse } from '@/lib/engine/http';
 
@@ -49,16 +50,25 @@ export async function POST(req: Request) {
   try {
     const digest = await digestDrop(env.llm, form, transcript, { departments: routable });
     // Resident-appropriate view: label each form field with its value or "missing".
+    // type/choices ride along so the UI can offer tap-chips for the gaps.
     const understood = form.fields
       .filter((f) => f.type !== 'attachment')
       .map((f) => ({
         key: f.key,
         label: f.label,
+        type: f.type,
+        choices: f.choices ?? null,
         value: digest.values.find((v) => v.fieldKey === f.key)?.value ?? null,
         missing: digest.missing.includes(f.key),
       }));
+
+    // Approximate-address verification (fail-soft; adds ~0.5s when present).
+    const loc = understood.find((u) => u.type === 'location' && !u.missing && u.value);
+    const locationMatch = loc ? await geocodeApprox(String(loc.value), form.city) : null;
+
     return Response.json({
       understood,
+      locationMatch,
       category: digest.classification.category,
       severity: digest.classification.severity,
       department: digest.classification.department,
