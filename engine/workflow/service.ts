@@ -20,9 +20,11 @@ import type {
   WorkflowInstance,
   WorkflowStatus,
 } from '../domain/types';
+import type { WorkflowGraph } from '../domain/graph';
 import type { EngineEnv } from '../ports';
 import { computeTiming, type TimingReport } from '../timing/index';
 import { decide, fulfillResubmit, reviseAndResubmit, startWorkflow, type CommandResult } from './commands';
+import { compileGraph, startGraphWorkflow } from './graph';
 import { deriveInstance } from './state';
 import { fail } from './errors';
 
@@ -56,10 +58,11 @@ export async function loadInstance(
   if (!submission) return null;
 
   const p = opened.payload as Record<string, unknown>;
-  const def = await env.repo.getWorkflowDefinition(
-    p.workflowKey as string,
-    p.workflowVersion as number | undefined,
-  );
+  // v2: the composed graph is FROZEN in the opened event — compile it from the
+  // log, no external definition to fetch. v1: fall back to the versioned def.
+  const def = p.graph
+    ? compileGraph(p.graph as WorkflowGraph)
+    : await env.repo.getWorkflowDefinition(p.workflowKey as string, p.workflowVersion as number | undefined);
   if (!def) return null;
 
   const instance = deriveInstance(events, def);
@@ -94,6 +97,41 @@ export async function submitForm(
   await env.repo.saveSubmission(submission);
 
   const result = startWorkflow(submission, def!, env);
+  await commit(env, result);
+  return { submissionId: submission.id, instanceId: result.instanceId };
+}
+
+/**
+ * v2 verify-and-submit: persist the Record of Truth and open a workflow from a
+ * COMPOSED graph (agent-composed, staff-confirmed). The graph is frozen into the
+ * log — nothing is fetched by key. Validates the graph compiles BEFORE writing
+ * anything (fail closed: a bad graph never leaves a half-created submission).
+ */
+export async function submitGraph(
+  env: EngineEnv,
+  input: {
+    formKey: string;
+    formVersion?: number;
+    city: string;
+    source: Submission['source'];
+    values: FieldValue[];
+    graph: WorkflowGraph;
+  },
+): Promise<{ submissionId: string; instanceId: string }> {
+  compileGraph(input.graph); // throws GRAPH_* before any persistence
+
+  const submission: Submission = {
+    id: env.ids.next(),
+    formKey: input.formKey,
+    formVersion: input.formVersion ?? 1,
+    city: input.city,
+    submittedAt: env.clock.now(),
+    values: input.values,
+    source: input.source,
+  };
+  await env.repo.saveSubmission(submission);
+
+  const result = startGraphWorkflow(submission, input.graph, env);
   await commit(env, result);
   return { submissionId: submission.id, instanceId: result.instanceId };
 }

@@ -94,6 +94,7 @@ export function startWorkflow(
   submission: Submission,
   def: WorkflowDefinition,
   ctx: CommandCtx,
+  opts?: { graph?: unknown },
 ): CommandResult & { instanceId: string } {
   const instanceId = ctx.ids.next();
   const inst = { id: instanceId, submissionId: submission.id };
@@ -106,7 +107,13 @@ export function startWorkflow(
       type: 'workflow.opened',
       actor: 'system',
       actorSide: 'system',
-      payload: { workflowKey: def.key, workflowVersion: def.version },
+      // The v2 path passes the composed graph here; it is FROZEN into the log
+      // and re-read by loadGraphFlow. The v1 path omits it (def is fetched by key).
+      payload: {
+        workflowKey: def.key,
+        workflowVersion: def.version,
+        ...(opts?.graph !== undefined ? { graph: opts.graph } : {}),
+      },
     }),
   );
 

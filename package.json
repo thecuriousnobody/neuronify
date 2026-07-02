@@ -13,7 +13,8 @@
     "db:setup": "node scripts/setup-db.mjs",
     "engine:db:setup": "node scripts/setup-engine-db.mjs",
     "engine:seed": "node scripts/seed-engine.mjs",
-    "engine:smoke": "node --import tsx scripts/smoke-engine.ts"
+    "engine:smoke": "node --import tsx scripts/smoke-engine.ts",
+    "engine:smoke:graph": "node --import tsx scripts/smoke-engine-graph.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
