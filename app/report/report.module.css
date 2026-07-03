@@ -281,3 +281,16 @@
   .mic.live .micDot { animation: none; }
   .mic.live .micRing { animation: none; }
 }
+
+/* SMS opt-in */
+.phoneRow { margin-bottom: 12px; }
+.phoneInput {
+  width: 100%;
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--text);
+  padding: 11px 14px;
+  font-size: 14px;
+}
+.phoneInput:focus { outline: none; border-color: rgba(56, 189, 248, 0.5); }

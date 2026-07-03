@@ -38,6 +38,11 @@ export async function POST(req: Request) {
   const city = resolveCity(body?.city ?? null);
   const source = body?.source === 'text' ? 'text' : 'voice';
 
-  const { id, createdAt } = await createPending({ formKey, city: city.db, transcript, source });
+  // Optional SMS opt-in: keep digits/+ only; 10–15 digits or it's dropped.
+  const rawPhone = String(body?.phone ?? '').replace(/[^\d+]/g, '');
+  const digits = rawPhone.replace(/\D/g, '');
+  const phone = digits.length >= 10 && digits.length <= 15 ? rawPhone : null;
+
+  const { id, createdAt } = await createPending({ formKey, city: city.db, transcript, source, phone });
   return Response.json({ id, createdAt });
 }

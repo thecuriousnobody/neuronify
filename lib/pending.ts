@@ -11,6 +11,8 @@ export interface PendingIntake {
   city: string;
   transcript: string;
   source: 'voice' | 'text';
+  /** Optional SMS opt-in captured at the drop. */
+  phone: string | null;
   createdAt: string;
 }
 
@@ -22,11 +24,12 @@ export async function createPending(input: {
   city: string;
   transcript: string;
   source?: 'voice' | 'text';
+  phone?: string | null;
 }): Promise<{ id: string; createdAt: string }> {
   const sql = getSql();
   const rows = (await sql`
-    insert into nf_pending_intakes (form_key, city, transcript, source)
-    values (${input.formKey}, ${input.city}, ${input.transcript}, ${input.source ?? 'voice'})
+    insert into nf_pending_intakes (form_key, city, transcript, source, phone)
+    values (${input.formKey}, ${input.city}, ${input.transcript}, ${input.source ?? 'voice'}, ${input.phone ?? null})
     returning id, created_at
   `) as Row[];
   return { id: rows[0].id as string, createdAt: new Date(rows[0].created_at).toISOString() };
@@ -36,7 +39,7 @@ export async function createPending(input: {
 export async function listPending(): Promise<PendingIntake[]> {
   const sql = getSql();
   const rows = (await sql`
-    select id, form_key, city, transcript, source, created_at
+    select id, form_key, city, transcript, source, phone, created_at
     from nf_pending_intakes
     order by created_at desc
     limit 100
@@ -47,7 +50,7 @@ export async function listPending(): Promise<PendingIntake[]> {
 export async function getPending(id: string): Promise<PendingIntake | null> {
   const sql = getSql();
   const rows = (await sql`
-    select id, form_key, city, transcript, source, created_at
+    select id, form_key, city, transcript, source, phone, created_at
     from nf_pending_intakes where id = ${id}
   `) as Row[];
   return rows[0] ? toPending(rows[0]) : null;
@@ -66,6 +69,7 @@ function toPending(r: Row): PendingIntake {
     city: r.city,
     transcript: r.transcript,
     source: r.source,
+    phone: r.phone ?? null,
     createdAt: new Date(r.created_at).toISOString(),
   };
 }

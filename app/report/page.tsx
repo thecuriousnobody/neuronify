@@ -129,6 +129,7 @@ export default function Report() {
   const [error, setError] = useState('');
   const [preview, setPreview] = useState<Preview | null>(null);
   const [receipt, setReceipt] = useState<{ id: string; createdAt: string } | null>(null);
+  const [phone, setPhone] = useState('');
   const [city, setCity] = useState<City>(() => resolveCity(null));
 
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -246,7 +247,12 @@ export default function Report() {
       const res = await fetch('/api/v2/report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript: value, city: city.slug, source: usedVoiceRef.current ? 'voice' : 'text' }),
+        body: JSON.stringify({
+          transcript: value,
+          city: city.slug,
+          source: usedVoiceRef.current ? 'voice' : 'text',
+          phone: phone.trim() || undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -267,6 +273,7 @@ export default function Report() {
     setError('');
     setPreview(null);
     setReceipt(null);
+    setPhone('');
     usedVoiceRef.current = false;
     setPhase('idle');
   }
@@ -416,6 +423,16 @@ export default function Report() {
                     </li>
                   ))}
                 </ul>
+              </div>
+              <div className={styles.phoneRow}>
+                <input
+                  className={styles.phoneInput}
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="Mobile number for text updates (optional)"
+                  aria-label="Mobile number for text updates (optional)"
+                />
               </div>
               <button type="button" className={styles.send} onClick={send} disabled={phase === 'sending'}>
                 {phase === 'sending' ? 'Sending…' : 'Looks right — send to the city →'}

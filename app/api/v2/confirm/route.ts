@@ -10,7 +10,9 @@ import { engineEnv } from '@/lib/engine';
 import { submitGraph } from '@/engine';
 import type { WorkflowGraph, FieldValue } from '@/engine';
 import { currentDepartment } from '@/lib/desk-auth';
-import { deletePending } from '@/lib/pending';
+import { deletePending, getPending } from '@/lib/pending';
+import { drainOutbox } from '@/lib/notify';
+import { getSql } from '@/lib/db';
 import { rateLimit } from '@/lib/ratelimit';
 import { errorResponse } from '@/lib/engine/http';
 
@@ -52,6 +54,9 @@ export async function POST(req: Request) {
   if (!form) return Response.json({ error: 'Unknown form.' }, { status: 404 });
 
   try {
+    // Grab the pending drop BEFORE launch — it may carry the resident's SMS opt-in.
+    const pending = pendingId ? await getPending(pendingId).catch(() => null) : null;
+
     const { submissionId, submittedAt } = await submitGraph(env, {
       formKey: form.key,
       formVersion: form.version,
@@ -61,8 +66,27 @@ export async function POST(req: Request) {
       graph,
       launchedBy: staff, // the accountable human, recorded in the frozen ledger
     });
+
+    // Carry the opt-in phone over (separate from the anonymous Record of Truth).
+    if (pending?.phone) {
+      try {
+        const sql = getSql();
+        await sql`
+          insert into nf_submission_contacts (submission_id, phone)
+          values (${submissionId}, ${pending.phone})
+          on conflict (submission_id) do nothing
+        `;
+      } catch {
+        /* contact is best-effort — never blocks the launch */
+      }
+    }
+
     // Promoted to a submission — clear it from the pending queue (best-effort).
     if (pendingId) await deletePending(pendingId).catch(() => {});
+
+    // Deliver the receipt SMS + department nudges (best-effort, never blocks the launch).
+    await drainOutbox(submissionId).catch(() => {});
+
     return Response.json({ submissionId, submittedAt, launchedBy: staff });
   } catch (err) {
     return errorResponse(err);

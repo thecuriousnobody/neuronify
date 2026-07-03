@@ -3,6 +3,7 @@ import { deskDecide } from '@/engine';
 import { currentDepartment } from '@/lib/desk-auth';
 import { rateLimit } from '@/lib/ratelimit';
 import { errorResponse } from '@/lib/engine/http';
+import { drainOutbox } from '@/lib/notify';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -37,6 +38,7 @@ export async function POST(req: Request) {
   try {
     // `department` comes from the verified cookie — never from the body.
     await deskDecide(engineEnv(), department, { submissionId, decision, reason, resubmitScope });
+    await drainOutbox(submissionId).catch(() => {}); // deliver relays, best-effort
     return Response.json({ ok: true });
   } catch (err) {
     return errorResponse(err);

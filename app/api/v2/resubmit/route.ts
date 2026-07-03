@@ -1,5 +1,6 @@
 // Citizen edits the bounced fields and resubmits. Ownership enforced from the
 // verified session; the engine validates the edits are within the requested scope.
+import { drainOutbox } from '@/lib/notify';
 import { engineEnv } from '@/lib/engine';
 import { recordRevisionAndResubmit, type FieldValue } from '@/engine';
 import { currentUser } from '@/auth';
@@ -37,6 +38,7 @@ export async function POST(req: Request) {
 
   try {
     await recordRevisionAndResubmit(engineEnv(), submissionId, values);
+    await drainOutbox(submissionId).catch(() => {}); // deliver relays, best-effort
     return Response.json({ ok: true });
   } catch (err) {
     return errorResponse(err);
