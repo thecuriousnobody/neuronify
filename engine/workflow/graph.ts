@@ -92,9 +92,10 @@ export function startGraphWorkflow(
   submission: Submission,
   graph: WorkflowGraph,
   ctx: CommandCtx,
+  opts?: { launchedBy?: string },
 ): CommandResult & { instanceId: string } {
   const def = compileGraph(graph);
-  return startWorkflow(submission, def, ctx, { graph });
+  return startWorkflow(submission, def, ctx, { graph, launchedBy: opts?.launchedBy });
 }
 
 /** A live workflow reconstructed purely from its log, plus its frozen graph + compiled def. */

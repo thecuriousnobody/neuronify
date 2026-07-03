@@ -200,9 +200,16 @@
 .canvas {
   position: relative;
   overflow-x: auto;
+  border-radius: 10px;
+  cursor: grab;
+  touch-action: pan-y;
+  scrollbar-width: thin;
+}
+.canvas:active { cursor: grabbing; }
+.canvasInner {
+  position: relative;
   background-image: radial-gradient(rgba(140, 160, 200, 0.08) 1px, transparent 1px);
   background-size: 22px 22px;
-  border-radius: 10px;
 }
 .edges { position: absolute; inset: 0; pointer-events: none; }
 .edge { fill: none; stroke: rgba(56, 189, 248, 0.45); stroke-width: 2; }
@@ -358,6 +365,79 @@
   cursor: pointer;
 }
 .removeBtn:hover { background: rgba(239, 68, 68, 0.16); }
+
+/* thumbs + canvas bar right cluster */
+.barRight { display: flex; align-items: center; gap: 10px; }
+.voteWrap { display: flex; gap: 4px; }
+.voteBtn {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1;
+  padding: 5px 9px;
+  cursor: pointer;
+  filter: grayscale(0.4);
+  transition: border-color 0.15s ease, filter 0.15s ease;
+}
+.voteBtn:hover { border-color: rgba(56, 189, 248, 0.5); filter: none; }
+.votedNote { font-size: 12px; color: var(--muted); font-style: italic; }
+
+/* due-diligence gate */
+.diligence {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 16px 0 12px;
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.5;
+  cursor: pointer;
+}
+.diligence input {
+  margin-top: 2px;
+  accent-color: var(--cyan);
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+/* launch record */
+.receipt {
+  background: var(--card);
+  border: 1px solid rgba(91, 201, 138, 0.35);
+  border-radius: 14px;
+  padding: 18px;
+  margin-bottom: 16px;
+}
+.receiptHead {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #86e0aa;
+  margin-bottom: 12px;
+}
+.receiptGrid {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 7px 14px;
+  margin: 0;
+  font-size: 13.5px;
+}
+.receiptGrid dt { color: var(--muted); }
+.receiptGrid dd { margin: 0; color: var(--text); }
+.receiptGrid code { font-family: ui-monospace, monospace; font-size: 12.5px; color: var(--cyan-bright); word-break: break-all; }
+.receiptFoot {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.receiptFoot a { color: var(--cyan-bright); text-decoration: none; }
+.receiptFoot a:hover { text-decoration: underline; }
 
 /* full-text modal */
 .overlay {

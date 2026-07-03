@@ -128,6 +128,7 @@ export default function Report() {
   const [recording, setRecording] = useState(false);
   const [error, setError] = useState('');
   const [preview, setPreview] = useState<Preview | null>(null);
+  const [receipt, setReceipt] = useState<{ id: string; createdAt: string } | null>(null);
   const [city, setCity] = useState<City>(() => resolveCity(null));
 
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -253,6 +254,7 @@ export default function Report() {
         setPhase('idle');
         return;
       }
+      setReceipt({ id: String(data.id ?? ''), createdAt: String(data.createdAt ?? '') });
       setPhase('done');
     } catch {
       setError('Network hiccup. Try again.');
@@ -264,6 +266,7 @@ export default function Report() {
     setText('');
     setError('');
     setPreview(null);
+    setReceipt(null);
     usedVoiceRef.current = false;
     setPhase('idle');
   }
@@ -344,6 +347,12 @@ export default function Report() {
               </div>
             ) : (
               <div className={styles.doneSummary}>“{text}”</div>
+            )}
+            {receipt && (
+              <div className={styles.receiptLine}>
+                Received {receipt.createdAt ? new Date(receipt.createdAt).toLocaleString() : 'just now'} · Ref{' '}
+                <code>{receipt.id.slice(0, 8).toUpperCase()}</code>
+              </div>
             )}
             <p className={styles.note}>A {city.short} staffer will review your report and route it. You’ll be able to track it soon.</p>
             <button className={styles.again} onClick={reset}>Report another</button>

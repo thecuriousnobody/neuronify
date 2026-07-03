@@ -116,8 +116,10 @@ export async function submitGraph(
     source: Submission['source'];
     values: FieldValue[];
     graph: WorkflowGraph;
+    /** The accountable human confirming the launch — recorded in the ledger. */
+    launchedBy?: string;
   },
-): Promise<{ submissionId: string; instanceId: string }> {
+): Promise<{ submissionId: string; instanceId: string; submittedAt: string }> {
   compileGraph(input.graph); // throws GRAPH_* before any persistence
 
   const submission: Submission = {
@@ -131,9 +133,9 @@ export async function submitGraph(
   };
   await env.repo.saveSubmission(submission);
 
-  const result = startGraphWorkflow(submission, input.graph, env);
+  const result = startGraphWorkflow(submission, input.graph, env, { launchedBy: input.launchedBy });
   await commit(env, result);
-  return { submissionId: submission.id, instanceId: result.instanceId };
+  return { submissionId: submission.id, instanceId: result.instanceId, submittedAt: submission.submittedAt };
 }
 
 /** A department records its decision on the current open step. */

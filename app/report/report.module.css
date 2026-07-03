@@ -248,6 +248,13 @@
   line-height: 1.5;
 }
 .doneCard { width: 100%; margin-bottom: 0; }
+.receiptLine {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.receiptLine code { color: var(--cyan-bright); }
 .again {
   margin-top: 4px;
   padding: 10px 20px;

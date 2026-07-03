@@ -16,20 +16,20 @@ export interface PendingIntake {
 
 type Row = Record<string, any>;
 
-/** Park a transcribed drop for staff review. Returns the new id. */
+/** Park a transcribed drop for staff review. Returns the new id + receipt time. */
 export async function createPending(input: {
   formKey: string;
   city: string;
   transcript: string;
   source?: 'voice' | 'text';
-}): Promise<string> {
+}): Promise<{ id: string; createdAt: string }> {
   const sql = getSql();
   const rows = (await sql`
     insert into nf_pending_intakes (form_key, city, transcript, source)
     values (${input.formKey}, ${input.city}, ${input.transcript}, ${input.source ?? 'voice'})
-    returning id
+    returning id, created_at
   `) as Row[];
-  return rows[0].id as string;
+  return { id: rows[0].id as string, createdAt: new Date(rows[0].created_at).toISOString() };
 }
 
 /** The staff review queue — oldest-waiting isn't prioritized; newest first. */

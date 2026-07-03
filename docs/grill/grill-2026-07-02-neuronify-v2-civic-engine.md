@@ -62,6 +62,10 @@ automating today's manual bureaucratic process; the actor model just keeps the d
 - **Real department integration / production SMS to real city staff** — demo roles instead. *Real integration needs city buy-in not yet in hand.*
 - **Payment as a first-class step type** — modeled as a typed Approval. *Not needed to prove the pipeline.*
 - **City / county multi-tenant layers** — Peoria-only, single tenant. *Grassroots first; layer later.*
+- **Attachments on workflow nodes** (photo/document evidence riding specific steps of the trail) —
+  *2026-07-02 field-test idea (Rajeev). The engine is pre-shaped for it (`requiresAttachments`
+  on steps, attachment fields); needs real blob storage, so it's the designed next step after
+  the demo, not a rush job.*
 
 ## How it works (happy path — Pothole, scenario A)
 1. Resident opens Neuronify, taps the mic, describes a pothole at "Main St & 5th."

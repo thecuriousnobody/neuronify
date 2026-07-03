@@ -38,6 +38,6 @@ export async function POST(req: Request) {
   const city = resolveCity(body?.city ?? null);
   const source = body?.source === 'text' ? 'text' : 'voice';
 
-  const id = await createPending({ formKey, city: city.db, transcript, source });
-  return Response.json({ id });
+  const { id, createdAt } = await createPending({ formKey, city: city.db, transcript, source });
+  return Response.json({ id, createdAt });
 }

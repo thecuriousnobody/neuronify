@@ -52,17 +52,18 @@ export async function POST(req: Request) {
   if (!form) return Response.json({ error: 'Unknown form.' }, { status: 404 });
 
   try {
-    const { submissionId } = await submitGraph(env, {
+    const { submissionId, submittedAt } = await submitGraph(env, {
       formKey: form.key,
       formVersion: form.version,
       city: form.city, // authoritative — never from the client
       source,
       values,
       graph,
+      launchedBy: staff, // the accountable human, recorded in the frozen ledger
     });
     // Promoted to a submission — clear it from the pending queue (best-effort).
     if (pendingId) await deletePending(pendingId).catch(() => {});
-    return Response.json({ submissionId });
+    return Response.json({ submissionId, submittedAt, launchedBy: staff });
   } catch (err) {
     return errorResponse(err);
   }

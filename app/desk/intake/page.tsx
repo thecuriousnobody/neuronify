@@ -6,7 +6,7 @@
 // freezes the graph and opens the workflow. Viewer + light edit, not an authoring
 // canvas — the agent composed it, the human is accountable for launching it.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import styles from './intake.module.css';
 
 const SEVERITIES = ['safety_critical', 'high', 'medium', 'low'] as const;
@@ -66,6 +66,9 @@ export default function IntakeConsole() {
   const [graph, setGraph] = useState<WorkflowGraph | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [modalText, setModalText] = useState<{ title: string; text: string } | null>(null);
+  const [diligence, setDiligence] = useState(false);
+  const [voted, setVoted] = useState<'up' | 'down' | null>(null);
+  const [launchMeta, setLaunchMeta] = useState<{ submittedAt: string; launchedBy: string } | null>(null);
 
   async function loadQueue() {
     try {
@@ -111,6 +114,9 @@ export default function IntakeConsole() {
       setDepartment(p.classification.department);
       setGraph(p.graph);
       setSelected(null);
+      setDiligence(false);
+      setVoted(null);
+      setLaunchMeta(null);
     } catch {
       setError('Network error.');
     } finally {
@@ -182,6 +188,31 @@ export default function IntakeConsole() {
 
   const selectedNode = useMemo(() => graph?.nodes.find((n) => n.key === selected) ?? null, [graph, selected]);
 
+  /** Thumbs on the composition — persisted with the proposal snapshot as a tuning signal. */
+  async function vote(verdict: 'up' | 'down') {
+    if (voted) return;
+    setVoted(verdict);
+    try {
+      await fetch('/api/v2/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          surface: 'composed_workflow',
+          verdict,
+          context: {
+            transcript: transcript.slice(0, 2000),
+            classification: proposal?.classification,
+            severity,
+            department,
+            graphNodes: graph?.nodes.map((n) => ({ key: n.key, kind: n.kind, title: n.title })),
+          },
+        }),
+      });
+    } catch {
+      /* best-effort — the vote UI already registered */
+    }
+  }
+
   async function launch() {
     if (!proposal || !graph) return;
     setError(null);
@@ -198,6 +229,7 @@ export default function IntakeConsole() {
         return;
       }
       setLaunchedId(data.submissionId);
+      setLaunchMeta({ submittedAt: data.submittedAt, launchedBy: data.launchedBy });
       // Clear the just-launched drop from the queue.
       if (pendingId) {
         setQueue((q) => q.filter((p) => p.id !== pendingId));
@@ -282,9 +314,21 @@ export default function IntakeConsole() {
       {error && <div className={styles.error}>{error}</div>}
 
       {launchedId && (
-        <div className={styles.success}>
-          Launched. Submission <code>{launchedId.slice(0, 8)}</code> is live.{' '}
-          <a href={`/track/${launchedId}`}>Track it →</a>
+        <div className={styles.receipt}>
+          <div className={styles.receiptHead}>Launch record</div>
+          <dl className={styles.receiptGrid}>
+            <dt>Reference</dt>
+            <dd><code>{launchedId}</code></dd>
+            <dt>Launched</dt>
+            <dd>{launchMeta ? new Date(launchMeta.submittedAt).toLocaleString() : '—'}</dd>
+            <dt>Launched by</dt>
+            <dd>{launchMeta ? pretty(launchMeta.launchedBy) : '—'}</dd>
+            <dt>Route</dt>
+            <dd>{graph ? graph.nodes.filter((n) => n.kind === 'approval').map((n) => n.title).join(' → ') : '—'}</dd>
+          </dl>
+          <div className={styles.receiptFoot}>
+            Frozen into the audit ledger. <a href={`/track/${launchedId}`}>Track it →</a>
+          </div>
         </div>
       )}
 
@@ -336,15 +380,34 @@ export default function IntakeConsole() {
               </div>
             </div>
 
-            <button className={styles.launch} onClick={launch} disabled={launching} type="button">
+            <label className={styles.diligence}>
+              <input
+                type="checkbox"
+                checked={diligence}
+                onChange={(e) => setDiligence(e.target.checked)}
+              />
+              <span>
+                I&apos;ve reviewed the details, severity, and routing. Launching freezes this
+                workflow into the audit record under my department&apos;s name.
+              </span>
+            </label>
+            <button className={styles.launch} onClick={launch} disabled={launching || !diligence} type="button">
               {launching ? 'Launching…' : 'Confirm & Launch'}
             </button>
-            <p className={styles.hint}>Launching freezes this workflow and starts the clock. You&apos;re the accountable human on this decision.</p>
           </div>
 
           <div className={styles.canvasWrap}>
             <div className={styles.canvasBar}>
-              <div className={styles.canvasLabel}>Composed workflow · click a step to inspect</div>
+              <div className={styles.canvasLabel}>Composed workflow · click a step to inspect · drag to pan</div>
+              <div className={styles.barRight}>
+              {voted ? (
+                <span className={styles.votedNote}>Noted — thank you</span>
+              ) : (
+                <span className={styles.voteWrap}>
+                  <button className={styles.voteBtn} onClick={() => vote('up')} type="button" aria-label="Good composition">👍</button>
+                  <button className={styles.voteBtn} onClick={() => vote('down')} type="button" aria-label="Off-base composition">👎</button>
+                </span>
+              )}
               <select
                 className={styles.addStep}
                 value=""
@@ -354,6 +417,7 @@ export default function IntakeConsole() {
                 <option value="">+ Add review step…</option>
                 {proposal.routableDepartments.map((d) => <option key={d} value={d}>{pretty(d)}</option>)}
               </select>
+              </div>
             </div>
             <Canvas graph={graph} severity={severity} selected={selected} onSelect={setSelected} />
             {selectedNode && (
@@ -419,35 +483,68 @@ function Canvas({
   const width = Math.max(...graph.nodes.map((n) => (n.layout?.x ?? 0) + NODE_W)) + 40;
   const height = Math.max(...graph.nodes.map((n) => (n.layout?.y ?? 0) + NODE_H)) + 40;
 
+  // Grab-and-pan: drag the dotted background to scroll the graph. A drag that
+  // starts on a node is ignored, so nodes stay clickable.
+  const panRef = useRef<HTMLDivElement | null>(null);
+  const panState = useRef({ startX: 0, startLeft: 0, active: false });
+
+  function panStart(e: React.PointerEvent) {
+    if ((e.target as HTMLElement).closest(`.${styles.node}`)) return;
+    const el = panRef.current;
+    if (!el) return;
+    panState.current = { startX: e.clientX, startLeft: el.scrollLeft, active: true };
+    el.setPointerCapture(e.pointerId);
+  }
+  function panMove(e: React.PointerEvent) {
+    const el = panRef.current;
+    if (!el || !panState.current.active) return;
+    el.scrollLeft = panState.current.startLeft - (e.clientX - panState.current.startX);
+  }
+  function panEnd(e: React.PointerEvent) {
+    const el = panRef.current;
+    if (!el) return;
+    panState.current.active = false;
+    try { el.releasePointerCapture(e.pointerId); } catch { /* already released */ }
+  }
+
   return (
-    <div className={styles.canvas} style={{ minWidth: width, minHeight: height }}>
-      <svg className={styles.edges} width={width} height={height}>
-        {graph.edges.map((e, i) => {
-          const a = byKey.get(e.from)?.layout;
-          const b = byKey.get(e.to)?.layout;
-          if (!a || !b) return null;
-          const ax = a.x + NODE_W, ay = a.y + NODE_H / 2;
-          const bx = b.x, by = b.y + NODE_H / 2;
-          const d = `M ${ax} ${ay} C ${ax + 44} ${ay}, ${bx - 44} ${by}, ${bx} ${by}`;
-          return <path key={i} d={d} className={styles.edge} />;
-        })}
-      </svg>
-      {graph.nodes.map((n) => (
-        <div
-          key={n.key}
-          role="button"
-          tabIndex={0}
-          onClick={() => onSelect(selected === n.key ? null : n.key)}
-          onKeyDown={(e) => e.key === 'Enter' && onSelect(selected === n.key ? null : n.key)}
-          className={`${styles.node} ${styles[`kind_${n.kind}`] ?? ''} ${selected === n.key ? styles.nodeSelected : ''}`}
-          style={{ left: n.layout?.x ?? 0, top: n.layout?.y ?? 0, width: NODE_W, height: NODE_H }}
-        >
-          <div className={styles.nodeKind}>{n.kind.toUpperCase()}</div>
-          <div className={styles.nodeTitle}>{n.title}</div>
-          {n.kind === 'approval' && <div className={`${styles.sevPip} ${styles[`sev_${severity}`] ?? ''}`} />}
-          {n.note && <div className={styles.noteBadge}>note</div>}
-        </div>
-      ))}
+    <div
+      ref={panRef}
+      className={styles.canvas}
+      onPointerDown={panStart}
+      onPointerMove={panMove}
+      onPointerUp={panEnd}
+      onPointerCancel={panEnd}
+    >
+      <div className={styles.canvasInner} style={{ width, height }}>
+        <svg className={styles.edges} width={width} height={height}>
+          {graph.edges.map((e, i) => {
+            const a = byKey.get(e.from)?.layout;
+            const b = byKey.get(e.to)?.layout;
+            if (!a || !b) return null;
+            const ax = a.x + NODE_W, ay = a.y + NODE_H / 2;
+            const bx = b.x, by = b.y + NODE_H / 2;
+            const d = `M ${ax} ${ay} C ${ax + 44} ${ay}, ${bx - 44} ${by}, ${bx} ${by}`;
+            return <path key={i} d={d} className={styles.edge} />;
+          })}
+        </svg>
+        {graph.nodes.map((n) => (
+          <div
+            key={n.key}
+            role="button"
+            tabIndex={0}
+            onClick={() => onSelect(selected === n.key ? null : n.key)}
+            onKeyDown={(e) => e.key === 'Enter' && onSelect(selected === n.key ? null : n.key)}
+            className={`${styles.node} ${styles[`kind_${n.kind}`] ?? ''} ${selected === n.key ? styles.nodeSelected : ''}`}
+            style={{ left: n.layout?.x ?? 0, top: n.layout?.y ?? 0, width: NODE_W, height: NODE_H }}
+          >
+            <div className={styles.nodeKind}>{n.kind.toUpperCase()}</div>
+            <div className={styles.nodeTitle}>{n.title}</div>
+            {n.kind === 'approval' && <div className={`${styles.sevPip} ${styles[`sev_${severity}`] ?? ''}`} />}
+            {n.note && <div className={styles.noteBadge}>note</div>}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

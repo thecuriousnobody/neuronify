@@ -93,6 +93,18 @@ create table if not exists nf_pending_intakes (
 create index if not exists nf_pending_intakes_created_idx
   on nf_pending_intakes (created_at desc);
 
+-- Staff feedback on the agent's work (thumbs on the composed workflow, etc.).
+-- The tuning signal: real staff judgments about compositions, kept with enough
+-- context (the proposal snapshot) to learn from later.
+create table if not exists nf_agent_feedback (
+  id          uuid primary key default gen_random_uuid(),
+  surface     text not null,                    -- e.g. 'composed_workflow'
+  verdict     text not null,                    -- 'up' | 'down'
+  department  text,                             -- which staffer's desk voted
+  context     jsonb not null default '{}'::jsonb,
+  created_at  timestamptz not null default now()
+);
+
 -- ── Beta layer (interim — replace when the real identity/auth system lands) ──
 -- Who is trying the app. Captured at Google sign-in (auth.ts). DELIBERATELY
 -- separate from nf_submissions so the Record of Truth stays anonymous: identity
