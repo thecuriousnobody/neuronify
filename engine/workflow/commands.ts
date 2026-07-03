@@ -69,8 +69,9 @@ function relay(
   reason: CommunicationReason,
   message: string,
   out: CommandResult,
+  to: CommunicationIntent['to'] = 'submitter',
 ): void {
-  out.communications.push({ submissionId: inst.submissionId, to: 'submitter', reason, message });
+  out.communications.push({ submissionId: inst.submissionId, to, reason, message });
   out.events.push(
     event(ctx, {
       submissionId: inst.submissionId,
@@ -78,9 +79,25 @@ function relay(
       type: 'communication.sent',
       actor: 'system',
       actorSide: 'system',
-      payload: { reason, message },
+      payload: { reason, message, to },
     }),
   );
+}
+
+/** Nudge every department whose sign-off a freshly opened step requires. */
+function nudgeStep(
+  ctx: CommandCtx,
+  inst: { id: string; submissionId: string },
+  step: WorkflowStep,
+  out: CommandResult,
+): void {
+  for (const a of step.approvals) {
+    relay(
+      ctx, inst, 'dept_action_required',
+      `Review waiting: "${step.title}" needs your sign-off.`,
+      out, `department:${a.approver}`,
+    );
+  }
 }
 
 // ── commands ────────────────────────────────────────────────────────────────
@@ -94,6 +111,7 @@ export function startWorkflow(
   submission: Submission,
   def: WorkflowDefinition,
   ctx: CommandCtx,
+  opts?: { graph?: unknown; launchedBy?: string },
 ): CommandResult & { instanceId: string } {
   const instanceId = ctx.ids.next();
   const inst = { id: instanceId, submissionId: submission.id };
@@ -106,7 +124,15 @@ export function startWorkflow(
       type: 'workflow.opened',
       actor: 'system',
       actorSide: 'system',
-      payload: { workflowKey: def.key, workflowVersion: def.version },
+      // The v2 path passes the composed graph here; it is FROZEN into the log
+      // and re-read by loadGraphFlow. The v1 path omits it (def is fetched by key).
+      // `launchedBy` records the accountable human who confirmed the launch.
+      payload: {
+        workflowKey: def.key,
+        workflowVersion: def.version,
+        ...(opts?.graph !== undefined ? { graph: opts.graph } : {}),
+        ...(opts?.launchedBy ? { launchedBy: opts.launchedBy } : {}),
+      },
     }),
   );
 
@@ -122,6 +148,7 @@ export function startWorkflow(
         payload: stepOpenedPayload(first),
       }),
     );
+    nudgeStep(ctx, inst, first, out);
   }
 
   relay(ctx, inst, 'submitted', `We received your ${submission.formKey} and started review.`, out);
@@ -240,6 +267,7 @@ export function decide(
       out.events.push(
         event(ctx, { ...base, type: 'step.opened', actor: 'system', actorSide: 'system', payload: stepOpenedPayload(next) }),
       );
+      nudgeStep(ctx, inst, next, out);
       // One message per closed step/box — the "happy medium" cadence.
       relay(ctx, inst, 'step_completed', `Update: "${stepDef!.title}" is complete. Your request is now with "${next.title}".`, out);
     } else {
@@ -273,7 +301,7 @@ export function fulfillResubmit(
   if (approval!.status !== 'awaiting_resubmit')
     fail('APPROVAL_NOT_AWAITING_RESUBMIT', `"${input.approver}" is not awaiting a resubmit`);
 
-  return {
+  const out: CommandResult = {
     events: [
       event(ctx, {
         submissionId: instance.submissionId,
@@ -286,6 +314,13 @@ export function fulfillResubmit(
     ],
     communications: [],
   };
+  // The portion is back — nudge the waiting department to re-review.
+  relay(
+    ctx, { id: instance.id, submissionId: instance.submissionId },
+    'dept_action_required', 'The resident returned the requested changes — ready for your re-review.',
+    out, `department:${input.approver}`,
+  );
+  return out;
 }
 
 /**
@@ -335,6 +370,11 @@ export function reviseAndResubmit(
   for (const a of bounced) {
     out.events.push(
       event(ctx, { ...base, type: 'resubmit.fulfilled', actor, actorSide: 'external', payload: { stepKey: step!.stepKey, approver: a.approver } }),
+    );
+    relay(
+      ctx, { id: instance.id, submissionId: instance.submissionId },
+      'dept_action_required', 'The resident returned the requested changes — ready for your re-review.',
+      out, `department:${a.approver}`,
     );
   }
 

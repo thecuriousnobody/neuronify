@@ -24,8 +24,8 @@ export const outboxNotifier: Notifier = {
   async send(intent: CommunicationIntent): Promise<void> {
     const sql = getSql();
     await sql`
-      insert into nf_communications (submission_id, reason, message)
-      values (${intent.submissionId}, ${intent.reason}, ${intent.message})
+      insert into nf_communications (submission_id, reason, message, recipient)
+      values (${intent.submissionId}, ${intent.reason}, ${intent.message}, ${intent.to})
     `;
   },
 };

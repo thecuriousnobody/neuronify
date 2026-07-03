@@ -15,7 +15,11 @@ export type WorkflowErrorCode =
   | 'REASON_REQUIRED'
   | 'RESUBMIT_SCOPE_REQUIRED'
   | 'RESUBMIT_SCOPE_OUT_OF_BOUNDS'
-  | 'APPROVAL_NOT_AWAITING_RESUBMIT';
+  | 'APPROVAL_NOT_AWAITING_RESUBMIT'
+  // — graph (v2) —
+  | 'GRAPH_INVALID' // malformed graph: dangling edge, no single entry, cycle, empty approval
+  | 'GRAPH_BRANCHING_NOT_SUPPORTED' // condition/fan-out node — arrives with scenario B
+  | 'GRAPH_SNAPSHOT_MISSING'; // a workflow.opened event with no frozen graph (pre-v2 log)
 
 export class WorkflowError extends Error {
   constructor(public readonly code: WorkflowErrorCode, message: string) {

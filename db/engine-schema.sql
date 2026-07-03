@@ -76,6 +76,53 @@ create table if not exists nf_communications (
 create index if not exists nf_communications_undelivered_idx
   on nf_communications (created_at) where delivered_at is null;
 
+-- Who a communication is for: 'submitter' (the resident) or 'department:<key>'
+-- (a desk nudge). Rides the engine's CommunicationIntent.to.
+alter table nf_communications add column if not exists recipient text not null default 'submitter';
+
+-- How the delivery worker reached them (twilio_sms | log | none). Audit-friendly.
+alter table nf_communications add column if not exists channel text;
+
+-- Optional resident phone for SMS updates, captured at the voice drop.
+alter table nf_pending_intakes add column if not exists phone text;
+
+-- Resident contact per submission — SEPARATE from the anonymous Record of Truth
+-- (same pattern as nf_beta_submissions): drop this table and the records stay clean.
+create table if not exists nf_submission_contacts (
+  submission_id uuid primary key references nf_submissions(id) on delete cascade,
+  phone         text not null,
+  created_at    timestamptz not null default now()
+);
+
+-- Pending intakes — the resident's inbox BEFORE the staff confirm gate. A voice
+-- drop is transcribed and parked here; a staffer reviews it on /desk/intake,
+-- digests + confirms, and only THEN does it become a submission with a workflow.
+-- Deliberately app-side (not the engine's Record of Truth): nothing here is
+-- audited yet. Deleted once promoted to a submission (or dismissed).
+create table if not exists nf_pending_intakes (
+  id          uuid primary key default gen_random_uuid(),
+  form_key    text not null,
+  city        text not null,
+  transcript  text not null,
+  source      text not null default 'voice',      -- 'voice' | 'text'
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists nf_pending_intakes_created_idx
+  on nf_pending_intakes (created_at desc);
+
+-- Staff feedback on the agent's work (thumbs on the composed workflow, etc.).
+-- The tuning signal: real staff judgments about compositions, kept with enough
+-- context (the proposal snapshot) to learn from later.
+create table if not exists nf_agent_feedback (
+  id          uuid primary key default gen_random_uuid(),
+  surface     text not null,                    -- e.g. 'composed_workflow'
+  verdict     text not null,                    -- 'up' | 'down'
+  department  text,                             -- which staffer's desk voted
+  context     jsonb not null default '{}'::jsonb,
+  created_at  timestamptz not null default now()
+);
+
 -- ── Beta layer (interim — replace when the real identity/auth system lands) ──
 -- Who is trying the app. Captured at Google sign-in (auth.ts). DELIBERATELY
 -- separate from nf_submissions so the Record of Truth stays anonymous: identity

@@ -129,8 +129,14 @@ test('comms cadence: one message per step/box, not per department', async () => 
   // public_works approves -> box closes (final) -> one terminal message
   await recordDecision(env, submissionId, { stepKey: 'departmental', approver: 'public_works', decision: 'approved' });
 
-  const reasons = h.notifier.sent.map((c) => c.reason);
-  assert.deepEqual(reasons, ['submitted', 'step_completed', 'completed'], 'received, one per box, terminal');
+  // The RESIDENT cadence: received, one per box, terminal — never one per department.
+  const residentReasons = h.notifier.sent.filter((c) => c.to === 'submitter').map((c) => c.reason);
+  assert.deepEqual(residentReasons, ['submitted', 'step_completed', 'completed'], 'received, one per box, terminal');
+
+  // Departments get action nudges when their step OPENS (not on each approval):
+  // clerk at start, then fire + public_works when the departmental box opens.
+  const nudges = h.notifier.sent.filter((c) => c.reason === 'dept_action_required').map((c) => c.to);
+  assert.deepEqual(nudges, ['department:clerk', 'department:public_works', 'department:fire']);
 });
 
 test('submitForm fails closed when the form definition is missing', async () => {

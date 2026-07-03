@@ -252,11 +252,13 @@ export type CommunicationReason =
   | 'step_completed' // a whole review step closed; handing off to the next
   | 'requires_resubmit' // citizen must redo a portion — sent immediately
   | 'denied' // terminal
-  | 'completed'; // terminal
+  | 'completed' // terminal
+  | 'dept_action_required'; // a step opened (or a portion returned) — nudge the department
 
 export interface CommunicationIntent {
   submissionId: string;
-  to: 'submitter';
+  /** 'submitter', or 'department:<approver>' for city-side nudges. */
+  to: 'submitter' | `department:${string}`;
   reason: CommunicationReason;
   message: string;
 }

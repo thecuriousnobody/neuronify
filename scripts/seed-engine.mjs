@@ -40,10 +40,10 @@ const form = {
   version: 1,
   workflowKey: 'pothole_flow',
   fields: [
-    { key: 'location', label: 'Where is the pothole?', type: 'text', required: true, prompt: 'the street and nearest cross-street or landmark' },
-    { key: 'description', label: 'What’s wrong?', type: 'longtext', required: true, prompt: 'how big it is and what it’s affecting' },
+    { key: 'location', label: 'Where is it?', type: 'location', required: true, prompt: 'the street and nearest cross-street or landmark' },
+    { key: 'description', label: 'What’s wrong?', type: 'longtext', required: true, prompt: 'what the problem is and what it’s affecting' },
     { key: 'hazard', label: 'Is it a safety hazard?', type: 'boolean', required: true, prompt: 'whether it’s dangerous to drive or walk over' },
-    { key: 'photo', label: 'A photo of the pothole', type: 'attachment', required: false, requiresAttachment: true },
+    { key: 'photo', label: 'A photo', type: 'attachment', required: false, requiresAttachment: true },
   ],
 };
 

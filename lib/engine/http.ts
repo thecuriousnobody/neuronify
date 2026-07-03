@@ -17,6 +17,10 @@ const STATUS: Record<WorkflowErrorCode, number> = {
   REASON_REQUIRED: 400,
   RESUBMIT_SCOPE_REQUIRED: 400,
   RESUBMIT_SCOPE_OUT_OF_BOUNDS: 400,
+  // graph (v2): malformed input is a 400; the not-yet-supported branch is a 422.
+  GRAPH_INVALID: 400,
+  GRAPH_BRANCHING_NOT_SUPPORTED: 422,
+  GRAPH_SNAPSHOT_MISSING: 409,
 };
 
 export function errorResponse(err: unknown): Response {
