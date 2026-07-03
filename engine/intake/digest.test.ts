@@ -80,6 +80,16 @@ test('compose → compile: the composed graph is one the engine accepts', async 
   assert.deepEqual(def.steps[0].approvals[0].scope, ['location', 'hazard']);
 });
 
+test('a malformed LLM response is retried once, not surfaced as an error', async () => {
+  const llm = new ScriptedLLM([
+    'Sure! Here is the JSON you asked for:', // junk — no braces at all
+    JSON.stringify({ extracted: { location: 'Main St & 5th Ave' } }),
+  ]);
+  const values = await extractFields(llm, potholeForm, transcript);
+  assert.equal(values.find((v) => v.fieldKey === 'location')?.value, 'Main St & 5th Ave');
+  assert.equal(llm.calls.length, 2, 'exactly one retry');
+});
+
 test('extractFields never invents: an empty transcript yields no values', async () => {
   const llm = new ScriptedLLM([JSON.stringify({ extracted: {} })]);
   const values = await extractFields(llm, potholeForm, 'um, hello?');

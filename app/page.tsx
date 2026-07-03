@@ -221,9 +221,9 @@ export default function Landing() {
           <div className="nav-links">
             <a href="#how">How it works</a>
             <a href="#brief">The brief</a>
-            <a href="/speak">Speak</a>
+            <a href="/report">Speak</a>
             <a href="/wall">Live wall</a>
-            <a href="/intake">File a report</a>
+            <a href="/report">File a report</a>
             <a href="#join" className="btn-ghost">
               Early access
             </a>
@@ -246,7 +246,7 @@ export default function Landing() {
             can actually act on. Speak up — and watch the signal travel.
           </p>
           <div className="cta-row">
-            <a href="/speak" className="btn btn-primary">
+            <a href="/report" className="btn btn-primary">
               Speak up <span className="arrow">→</span>
             </a>
             <a href="#how" className="btn-text">
@@ -398,8 +398,8 @@ export default function Landing() {
           <div className="footer-nav">
             <div className="footer-col">
               <div className="footer-h">Participate</div>
-              <a href="/intake">File a report</a>
-              <a href="/speak">Speak</a>
+              <a href="/report">File a report</a>
+              <a href="/report">Speak</a>
               <a href="/wall">Live wall</a>
               <a href="/brief/66df1af1-4d80-4115-a042-5ad41170f730">Sample brief</a>
             </div>

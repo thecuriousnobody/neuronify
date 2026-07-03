@@ -16,6 +16,22 @@ import type { LLM } from '../ports';
 import { mergeDraft, missingRequired } from './conversation';
 import { parseLooseJSON } from './json';
 
+/**
+ * One LLM call → parsed JSON, with a single retry on malformed output. Models
+ * occasionally emit unparseable JSON; one re-ask almost always recovers, and it
+ * keeps a transient model hiccup from surfacing as a 500 mid-demo.
+ */
+async function completeJson<T>(
+  llm: LLM,
+  args: { system: string; user: string; maxTokens?: number },
+): Promise<T> {
+  try {
+    return parseLooseJSON<T>(await llm.complete(args));
+  } catch {
+    return parseLooseJSON<T>(await llm.complete(args));
+  }
+}
+
 /** The city's real 4-level scale (mirrors lib/agents.ts; safety first). */
 export type Severity = 'safety_critical' | 'high' | 'medium' | 'low';
 export const SEVERITIES: Severity[] = ['safety_critical', 'high', 'medium', 'low'];
@@ -95,12 +111,11 @@ export async function extractFields(
   form: FormDefinition,
   transcript: string,
 ): Promise<FieldValue[]> {
-  const raw = await llm.complete({
+  const parsed = await completeJson<{ extracted?: Record<string, unknown> }>(llm, {
     system: extractSystemPrompt(form),
     user: `Resident's report (transcribed):\n"""${transcript}"""\n\nReturn the JSON.`,
     maxTokens: 500,
   });
-  const parsed = parseLooseJSON<{ extracted?: Record<string, unknown> }>(raw);
   const merged = mergeDraft(form, [], parsed.extracted ?? {});
   // Deterministic guard: vague non-places don't count as a location.
   const locationKeys = new Set(form.fields.filter((f) => f.type === 'location').map((f) => f.key));
@@ -137,12 +152,11 @@ export async function classify(
   opts: { departments: string[] },
 ): Promise<Classification> {
   if (opts.departments.length === 0) throw new Error('classify requires at least one department');
-  const raw = await llm.complete({
+  const p = await completeJson<Partial<Classification>>(llm, {
     system: classifySystemPrompt(form.city, opts.departments),
     user: `Resident's report (transcribed):\n"""${transcript}"""\n\nReturn the JSON.`,
     maxTokens: 300,
   });
-  const p = parseLooseJSON<Partial<Classification>>(raw);
 
   const severity: Severity = SEVERITIES.includes(p.severity as Severity)
     ? (p.severity as Severity)

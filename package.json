@@ -2,7 +2,7 @@
   "name": "neuronify",
   "version": "0.1.0",
   "private": true,
-  "description": "Your city's nervous system — civic feedback triaged and costed into a council brief.",
+  "description": "Your city's nervous system \u2014 civic feedback triaged and costed into a council brief.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -14,7 +14,8 @@
     "engine:db:setup": "node scripts/setup-engine-db.mjs",
     "engine:seed": "node scripts/seed-engine.mjs",
     "engine:smoke": "node --import tsx scripts/smoke-engine.ts",
-    "engine:smoke:graph": "node --import tsx scripts/smoke-engine-graph.ts"
+    "engine:smoke:graph": "node --import tsx scripts/smoke-engine-graph.ts",
+    "demo:seed": "node --import tsx scripts/seed-demo.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
