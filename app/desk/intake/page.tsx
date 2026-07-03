@@ -20,6 +20,7 @@ type GraphNode = {
   kind: 'start' | 'intake' | 'approval' | 'notify' | 'condition' | 'done';
   title: string;
   approvals?: { approver: string; scope: string[] }[];
+  note?: string;
   layout?: { x: number; y: number };
 };
 type GraphEdge = { from: string; to: string; when?: string };
@@ -36,6 +37,14 @@ type Proposal = {
 const pretty = (k: string) => k.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 const NODE_W = 150;
 const NODE_H = 66;
+
+/** Re-space a linear node chain and regenerate its edges. Scenario-A graphs are
+ *  a single path, so edits (add/remove a step) just relink the chain. */
+function relinkLinear(nodes: GraphNode[]): { nodes: GraphNode[]; edges: GraphEdge[] } {
+  const spaced = nodes.map((n, i) => ({ ...n, layout: { x: 24 + i * 212, y: 250 } }));
+  const edges = spaced.slice(0, -1).map((n, i) => ({ from: n.key, to: spaced[i + 1].key }));
+  return { nodes: spaced, edges };
+}
 
 const SAMPLE =
   "There's a deep pothole at Main Street and 5th Avenue. It's taking up almost the whole right lane and cars keep swerving into oncoming traffic to miss it. It's definitely dangerous — someone's going to get hurt.";
@@ -54,6 +63,9 @@ export default function IntakeConsole() {
   const [launchedId, setLaunchedId] = useState<string | null>(null);
   const [queue, setQueue] = useState<Pending[]>([]);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [graph, setGraph] = useState<WorkflowGraph | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [modalText, setModalText] = useState<{ title: string; text: string } | null>(null);
 
   async function loadQueue() {
     try {
@@ -97,6 +109,8 @@ export default function IntakeConsole() {
       setValues(p.values);
       setSeverity(p.classification.severity);
       setDepartment(p.classification.department);
+      setGraph(p.graph);
+      setSelected(null);
     } catch {
       setError('Network error.');
     } finally {
@@ -104,29 +118,79 @@ export default function IntakeConsole() {
     }
   }
 
-  // The live graph reflects the staff's chosen department (stable node key means
-  // we only relabel the approval node — no edge surgery).
-  const liveGraph = useMemo<WorkflowGraph | null>(() => {
-    if (!proposal) return null;
-    return {
-      ...proposal.graph,
-      nodes: proposal.graph.nodes.map((n) =>
-        n.kind === 'approval'
-          ? { ...n, title: `${pretty(department)} review`, approvals: [{ approver: department, scope: n.approvals?.[0]?.scope ?? [] }] }
-          : n,
-      ),
-    };
-  }, [proposal, department]);
+  // ── Canvas light-edit operations. All of them keep the graph a valid linear
+  // chain (relinkLinear), so what launches always compiles. ──
+
+  /** The routing dropdown re-targets the PRIMARY review node. */
+  function changeDepartment(dept: string) {
+    setDepartment(dept);
+    setGraph((g) =>
+      g
+        ? {
+            ...g,
+            nodes: g.nodes.map((n) =>
+              n.key === 'departmental_review'
+                ? { ...n, title: `${pretty(dept)} review`, approvals: [{ approver: dept, scope: n.approvals?.[0]?.scope ?? [] }] }
+                : n,
+            ),
+          }
+        : g,
+    );
+  }
+
+  /** Insert another departmental review step before "notify". */
+  function addStep(dept: string) {
+    setGraph((g) => {
+      if (!g) return g;
+      let key = `review_${dept}`;
+      let i = 2;
+      while (g.nodes.some((n) => n.key === key)) key = `review_${dept}_${i++}`;
+      const scope = g.nodes.find((n) => n.key === 'departmental_review')?.approvals?.[0]?.scope ?? [];
+      const node: GraphNode = {
+        key,
+        kind: 'approval',
+        title: `${pretty(dept)} review`,
+        approvals: [{ approver: dept, scope }],
+      };
+      const idx = g.nodes.findIndex((n) => n.kind === 'notify');
+      const nodes = [...g.nodes];
+      nodes.splice(idx === -1 ? nodes.length - 1 : idx, 0, node);
+      const relinked = relinkLinear(nodes);
+      setSelected(key);
+      return { ...g, ...relinked };
+    });
+  }
+
+  /** Remove a review step (the graph must keep at least one approval). */
+  function removeStep(key: string) {
+    setGraph((g) => {
+      if (!g) return g;
+      const approvals = g.nodes.filter((n) => n.kind === 'approval');
+      if (approvals.length <= 1) return g; // fail closed — the engine would reject it anyway
+      const relinked = relinkLinear(g.nodes.filter((n) => n.key !== key));
+      setSelected(null);
+      return { ...g, ...relinked };
+    });
+  }
+
+  /** Staff annotation on a node — frozen into the audit record at launch. */
+  function setNote(key: string, note: string) {
+    setGraph((g) =>
+      g ? { ...g, nodes: g.nodes.map((n) => (n.key === key ? { ...n, note: note || undefined } : n)) } : g,
+    );
+  }
+
+  const selectedNode = useMemo(() => graph?.nodes.find((n) => n.key === selected) ?? null, [graph, selected]);
 
   async function launch() {
-    if (!proposal || !liveGraph) return;
+    if (!proposal || !graph) return;
     setError(null);
     setLaunching(true);
     try {
       const res = await fetch('/api/v2/confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ formKey: proposal.form.key, values, graph: liveGraph, source: 'voice', pendingId }),
+        body: JSON.stringify({ formKey: proposal.form.key, values, graph, source: 'voice', pendingId }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -174,6 +238,13 @@ export default function IntakeConsole() {
             {queue.map((p) => (
               <li key={p.id} className={`${styles.queueItem} ${pendingId === p.id ? styles.queueActive : ''}`}>
                 <div className={styles.queueText}>{p.transcript}</div>
+                <button
+                  className={styles.seeMore}
+                  onClick={() => setModalText({ title: 'Resident’s report', text: p.transcript })}
+                  type="button"
+                >
+                  See more
+                </button>
                 <button className={styles.review} onClick={() => reviewPending(p)} type="button">Review →</button>
               </li>
             ))}
@@ -193,6 +264,14 @@ export default function IntakeConsole() {
           rows={4}
         />
         <div className={styles.row}>
+          <button
+            className={styles.ghost}
+            onClick={() => setModalText({ title: 'Resident’s report (full transcript)', text: transcript })}
+            disabled={!transcript.trim()}
+            type="button"
+          >
+            Read full ⤢
+          </button>
           <button className={styles.ghost} onClick={() => setTranscript(SAMPLE)} type="button">Use sample</button>
           <button className={styles.primary} onClick={() => digest()} disabled={digesting || !transcript.trim()} type="button">
             {digesting ? 'Digesting…' : 'Digest'}
@@ -210,7 +289,7 @@ export default function IntakeConsole() {
       )}
 
       {/* Step 2 — the proposal */}
-      {proposal && liveGraph && !launchedId && (
+      {proposal && graph && !launchedId && (
         <section className={styles.proposal}>
           <div className={styles.panel}>
             <h2 className={styles.h2}>What the agent understood</h2>
@@ -251,7 +330,7 @@ export default function IntakeConsole() {
               </div>
               <div className={styles.field}>
                 <label className={styles.fieldLabel}>Route to department</label>
-                <select className={styles.input} value={department} onChange={(e) => setDepartment(e.target.value)}>
+                <select className={styles.input} value={department} onChange={(e) => changeDepartment(e.target.value)}>
                   {proposal.routableDepartments.map((d) => <option key={d} value={d}>{pretty(d)}</option>)}
                 </select>
               </div>
@@ -264,16 +343,78 @@ export default function IntakeConsole() {
           </div>
 
           <div className={styles.canvasWrap}>
-            <div className={styles.canvasLabel}>Composed workflow</div>
-            <Canvas graph={liveGraph} severity={severity} />
+            <div className={styles.canvasBar}>
+              <div className={styles.canvasLabel}>Composed workflow · click a step to inspect</div>
+              <select
+                className={styles.addStep}
+                value=""
+                onChange={(e) => e.target.value && addStep(e.target.value)}
+                aria-label="Add a review step"
+              >
+                <option value="">+ Add review step…</option>
+                {proposal.routableDepartments.map((d) => <option key={d} value={d}>{pretty(d)}</option>)}
+              </select>
+            </div>
+            <Canvas graph={graph} severity={severity} selected={selected} onSelect={setSelected} />
+            {selectedNode && (
+              <div className={styles.inspector}>
+                <div className={styles.inspectorHead}>
+                  <span className={styles.inspectorKind}>{selectedNode.kind.toUpperCase()}</span>
+                  <strong className={styles.inspectorTitle}>{selectedNode.title}</strong>
+                  <button className={styles.inspectorClose} onClick={() => setSelected(null)} type="button">✕</button>
+                </div>
+                {selectedNode.kind === 'approval' && (
+                  <div className={styles.inspectorMeta}>
+                    Signs off on: {selectedNode.approvals?.[0]?.scope.join(', ') || '(all fields)'}
+                  </div>
+                )}
+                <label className={styles.fieldLabel}>
+                  Staff note — frozen into the audit record at launch
+                </label>
+                <textarea
+                  className={styles.noteBox}
+                  value={selectedNode.note ?? ''}
+                  onChange={(e) => setNote(selectedNode.key, e.target.value)}
+                  rows={2}
+                  placeholder="e.g. Verified location by phone — sign is fully down, expedite."
+                />
+                {selectedNode.kind === 'approval' && graph.nodes.filter((n) => n.kind === 'approval').length > 1 && (
+                  <button className={styles.removeBtn} onClick={() => removeStep(selectedNode.key)} type="button">
+                    Remove this step
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </section>
+      )}
+
+      {modalText && (
+        <div className={styles.overlay} onClick={() => setModalText(null)} role="presentation">
+          <div className={styles.modal} onClick={(e) => e.stopPropagation()} role="dialog" aria-label={modalText.title}>
+            <div className={styles.modalHead}>
+              <span>{modalText.title}</span>
+              <button className={styles.inspectorClose} onClick={() => setModalText(null)} type="button">✕</button>
+            </div>
+            <div className={styles.modalBody}>{modalText.text}</div>
+          </div>
+        </div>
       )}
     </main>
   );
 }
 
-function Canvas({ graph, severity }: { graph: WorkflowGraph; severity: Severity }) {
+function Canvas({
+  graph,
+  severity,
+  selected,
+  onSelect,
+}: {
+  graph: WorkflowGraph;
+  severity: Severity;
+  selected: string | null;
+  onSelect: (key: string | null) => void;
+}) {
   const byKey = new Map(graph.nodes.map((n) => [n.key, n]));
   const width = Math.max(...graph.nodes.map((n) => (n.layout?.x ?? 0) + NODE_W)) + 40;
   const height = Math.max(...graph.nodes.map((n) => (n.layout?.y ?? 0) + NODE_H)) + 40;
@@ -294,12 +435,17 @@ function Canvas({ graph, severity }: { graph: WorkflowGraph; severity: Severity 
       {graph.nodes.map((n) => (
         <div
           key={n.key}
-          className={`${styles.node} ${styles[`kind_${n.kind}`] ?? ''}`}
+          role="button"
+          tabIndex={0}
+          onClick={() => onSelect(selected === n.key ? null : n.key)}
+          onKeyDown={(e) => e.key === 'Enter' && onSelect(selected === n.key ? null : n.key)}
+          className={`${styles.node} ${styles[`kind_${n.kind}`] ?? ''} ${selected === n.key ? styles.nodeSelected : ''}`}
           style={{ left: n.layout?.x ?? 0, top: n.layout?.y ?? 0, width: NODE_W, height: NODE_H }}
         >
           <div className={styles.nodeKind}>{n.kind.toUpperCase()}</div>
           <div className={styles.nodeTitle}>{n.title}</div>
           {n.kind === 'approval' && <div className={`${styles.sevPip} ${styles[`sev_${severity}`] ?? ''}`} />}
+          {n.note && <div className={styles.noteBadge}>note</div>}
         </div>
       ))}
     </div>

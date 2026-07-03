@@ -43,6 +43,12 @@ export interface GraphNode {
   requiresAttachments?: string[];
   /** Condition nodes: a human-readable predicate; edges carry the branch labels. */
   condition?: { description: string };
+  /**
+   * Staff annotation added at the confirm gate. Presentational to execution,
+   * but NOT throwaway: it is frozen into the ledger with the rest of the graph,
+   * so a launch-time note is part of the immutable audit record.
+   */
+  note?: string;
   /** Canvas layout hint. Presentational only; ignored by execution. */
   layout?: { x: number; y: number };
 }
