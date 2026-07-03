@@ -299,7 +299,52 @@ export default function Report() {
             <div className={styles.doneTitle}>
               We’ve got it, <span className={styles.it}>thank you.</span>
             </div>
-            <div className={styles.doneSummary}>“{text}”</div>
+            {/* The OFFICIAL record — what the city receives, not the raw transcript. */}
+            {preview ? (
+              <div className={`${styles.understood} ${styles.doneCard}`}>
+                <div className={styles.understoodHead}>
+                  <span className={styles.understoodEyebrow}>Your report — as sent</span>
+                  <span className={`${styles.sevChip} ${styles[`sev_${preview.severity}`] ?? ''}`}>
+                    {SEV_LABEL[preview.severity] ?? preview.severity}
+                  </span>
+                </div>
+                <div className={styles.understoodCat}>
+                  {pretty(preview.category)} · routed to {pretty(preview.department)}
+                </div>
+                <ul className={styles.understoodList}>
+                  {preview.understood.map((u) => (
+                    <li key={u.key} className={styles.understoodItem}>
+                      <div className={styles.understoodRow}>
+                        <span className={styles.uLabel}>{u.label}</span>
+                        {u.missing ? (
+                          <span className={styles.uMissing}>not provided</span>
+                        ) : (
+                          <span className={styles.uValue}>{u.value === true ? 'Yes' : u.value === false ? 'No' : String(u.value)}</span>
+                        )}
+                      </div>
+                      {!u.missing && u.type === 'location' && preview.locationMatch && (
+                        <div className={styles.matchLine}>
+                          <span className={styles.matchPin}>◎</span>
+                          <span>
+                            ≈ {preview.locationMatch.matched}{' '}
+                            <a
+                              className={styles.matchLink}
+                              href={`https://www.openstreetmap.org/?mlat=${preview.locationMatch.lat}&mlon=${preview.locationMatch.lon}#map=17/${preview.locationMatch.lat}/${preview.locationMatch.lon}`}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              map ↗
+                            </a>
+                          </span>
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <div className={styles.doneSummary}>“{text}”</div>
+            )}
             <p className={styles.note}>A {city.short} staffer will review your report and route it. You’ll be able to track it soon.</p>
             <button className={styles.again} onClick={reset}>Report another</button>
           </div>
