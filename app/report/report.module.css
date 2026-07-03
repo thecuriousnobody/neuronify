@@ -35,6 +35,15 @@
   font-size: 15px;
 }
 .brandDot { width: 9px; height: 9px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
+.staffLink {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  font-size: 12px;
+  color: var(--muted-2);
+  text-decoration: none;
+}
+.staffLink:hover { color: var(--cyan-bright); }
 
 .inner { position: relative; width: 100%; max-width: 560px; text-align: center; }
 

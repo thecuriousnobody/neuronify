@@ -257,6 +257,13 @@ export default function IntakeConsole() {
         <div className={styles.eyebrow}>Neuronify · Intake console</div>
         <h1>Review &amp; launch a report</h1>
         <p className={styles.sub}>The agent digests a resident&apos;s report. You confirm what it understood and where it goes — then launch.</p>
+        <nav className={styles.crumbs}>
+          <a href="/report">Resident voice door (the mic) →</a>
+          <a href="/desk">Department queue →</a>
+        </nav>
+        <p className={styles.subHint}>
+          Residents speak at <code>/report</code>; their drops land in the queue below. The box here is a manual fallback.
+        </p>
       </header>
 
       {/* Queue — pending resident drops awaiting review */}

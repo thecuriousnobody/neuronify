@@ -135,6 +135,8 @@ export default function DeskPage() {
 
       <div className={styles.count}>
         {items.length === 0 ? 'Nothing awaiting your review.' : `${items.length} awaiting your review`}
+        {' · '}
+        <a className={styles.intakeLink} href="/desk/intake">Intake console →</a>
       </div>
 
       {items.length === 0 ? (

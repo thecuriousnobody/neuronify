@@ -270,3 +270,5 @@
   color: #8aa0b4;
   font-style: italic;
 }
+.intakeLink { color: var(--cyan-bright, #8FDCFF); text-decoration: none; }
+.intakeLink:hover { text-decoration: underline; }

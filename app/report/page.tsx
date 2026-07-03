@@ -294,6 +294,7 @@ export default function Report() {
         <span className={styles.brandDot} />
         Neuronify
       </a>
+      <a href="/desk/intake" className={styles.staffLink}>City staff? Intake console →</a>
 
       {phase === 'done' ? (
         <div className={styles.inner}>
