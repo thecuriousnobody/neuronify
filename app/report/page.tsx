@@ -75,6 +75,53 @@ function GapFiller({ field, onAnswer }: { field: Understood; onAnswer: (label: s
   );
 }
 
+/** The honest map line under a filled location. A confident match shows the
+ *  normalized address + a "not right?" escape hatch; a failed match says so
+ *  plainly and asks for a cross-street instead of asserting a wrong pin. */
+function LocationCheck({
+  field,
+  match,
+  onAnswer,
+}: {
+  field: Understood;
+  match: GeoMatch | null;
+  onAnswer: (label: string, answer: string) => void;
+}) {
+  const [fixing, setFixing] = useState(false);
+
+  if (fixing || !match) {
+    return (
+      <div className={styles.locFix}>
+        {!match && !fixing && (
+          <div className={styles.matchMiss}>
+            <span className={styles.matchPin}>◎</span> couldn’t pin this on the map — a street or cross-street helps
+          </div>
+        )}
+        <GapFiller field={field} onAnswer={onAnswer} />
+      </div>
+    );
+  }
+  return (
+    <div className={styles.matchLine}>
+      <span className={styles.matchPin}>◎</span>
+      <span>
+        ≈ {match.matched}{' '}
+        <a
+          className={styles.matchLink}
+          href={`https://www.openstreetmap.org/?mlat=${match.lat}&mlon=${match.lon}#map=17/${match.lat}/${match.lon}`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          map ↗
+        </a>{' '}
+        <button type="button" className={styles.fixLink} onClick={() => setFixing(true)}>
+          not right?
+        </button>
+      </span>
+    </div>
+  );
+}
+
 export default function Report() {
   const [text, setText] = useState('');
   const [phase, setPhase] = useState<Phase>('idle');
@@ -87,6 +134,12 @@ export default function Report() {
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const usedVoiceRef = useRef(false);
+
+  // Mirrors for use inside recorder callbacks (which close over stale state).
+  const textRef = useRef('');
+  const previewRef = useRef<Preview | null>(null);
+  useEffect(() => { textRef.current = text; }, [text]);
+  useEffect(() => { previewRef.current = preview; }, [preview]);
 
   useEffect(() => {
     setCity(resolveCity(new URLSearchParams(window.location.search).get('city')));
@@ -130,13 +183,22 @@ export default function Report() {
       const data = await res.json();
       if (!res.ok) {
         setError(data?.error || 'Transcription failed. You can type instead.');
+        setPhase('idle');
       } else {
         const t = String(data?.transcript ?? '').trim();
-        setText((prev) => (prev ? `${prev} ${t}` : t));
+        const next = textRef.current ? `${textRef.current} ${t}` : t;
+        setText(next);
+        // If the "what we understood" card was showing, the resident is
+        // CORRECTING it — re-digest with the new words instead of going stale.
+        if (previewRef.current && t) {
+          setPreview(null);
+          review(next); // review() sets phase itself
+        } else {
+          setPhase('idle');
+        }
       }
     } catch {
       setError('Network hiccup during transcription.');
-    } finally {
       setPhase('idle');
     }
   }
@@ -293,21 +355,8 @@ export default function Report() {
                         )}
                       </div>
                       {u.missing && <GapFiller field={u} onAnswer={answerGap} />}
-                      {!u.missing && u.type === 'location' && preview.locationMatch && (
-                        <div className={styles.matchLine}>
-                          <span className={styles.matchPin}>◎</span>
-                          <span>
-                            ≈ {preview.locationMatch.matched}{' '}
-                            <a
-                              className={styles.matchLink}
-                              href={`https://www.openstreetmap.org/?mlat=${preview.locationMatch.lat}&mlon=${preview.locationMatch.lon}#map=17/${preview.locationMatch.lat}/${preview.locationMatch.lon}`}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              map ↗
-                            </a>
-                          </span>
-                        </div>
+                      {!u.missing && u.type === 'location' && (
+                        <LocationCheck field={u} match={preview.locationMatch} onAnswer={answerGap} />
                       )}
                     </li>
                   ))}

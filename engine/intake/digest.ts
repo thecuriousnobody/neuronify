@@ -65,6 +65,10 @@ Rules:
   is, leave the location field out entirely. Do NOT put the thing being reported (e.g. "a
   broken sidewalk") into the location field, and do NOT extract vague non-places like
   "my street", "a block", or "near my house" — those count as not given.
+- CORRECTIONS WIN: residents often correct themselves ("no, actually it's at...").
+  When the transcript states a field more than once, the LATEST statement is the
+  truth. Lines of the form "Q: <question> A: <answer>" are explicit clarification
+  answers and always take priority over earlier prose.
 - Use the exact field keys above.
 
 OUTPUT RULES — CRITICAL: Output ONLY raw JSON. No markdown, no code fences, no text before or after. First character {, last character }.

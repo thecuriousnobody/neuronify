@@ -184,6 +184,28 @@
 .matchPin { color: var(--cyan); }
 .matchLink { color: var(--cyan-bright); text-decoration: none; }
 .matchLink:hover { text-decoration: underline; }
+.matchMiss {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  justify-content: flex-end;
+  font-size: 12px;
+  color: #fbbf77;
+  font-family: ui-monospace, monospace;
+}
+.matchMiss .matchPin { color: #fbbf77; }
+.locFix { display: flex; flex-direction: column; gap: 8px; }
+.fixLink {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-family: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.fixLink:hover { color: var(--cyan-bright); }
 .uLabel { color: var(--muted); flex-shrink: 0; }
 .uValue { color: var(--text); text-align: right; }
 .uMissing {
