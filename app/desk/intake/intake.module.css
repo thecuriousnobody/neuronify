@@ -511,3 +511,6 @@
   text-transform: none;
   font-weight: 600;
 }
+
+/* pan ergonomics: no accidental text selection while dragging the graph */
+.canvas, .canvasInner { user-select: none; }

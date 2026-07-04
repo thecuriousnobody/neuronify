@@ -134,9 +134,9 @@ export default function DeskPage() {
       </div>
 
       <div className={styles.count}>
-        {items.length === 0 ? 'Nothing awaiting your review.' : `${items.length} awaiting your review`}
+        {items.length === 0 ? 'Department queue — nothing awaiting your sign-off.' : `Department queue — ${items.length} awaiting your sign-off`}
         {' · '}
-        <a className={styles.intakeLink} href="/desk/intake">Intake console →</a>
+        <a className={styles.intakeLink} href="/desk/intake">Front desk →</a>
       </div>
 
       {items.length === 0 ? (

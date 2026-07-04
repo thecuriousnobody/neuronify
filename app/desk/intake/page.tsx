@@ -264,14 +264,14 @@ export default function IntakeConsole() {
     <main className={styles.page}>
       <header className={styles.head}>
         <div className={styles.eyebrow}>
-          Neuronify · Intake console
+          Neuronify · Front desk
           {me && <span className={styles.meBadge}>signed in as {pretty(me)}</span>}
         </div>
         <h1>Review &amp; launch a report</h1>
         <p className={styles.sub}>The agent digests a resident&apos;s report. You confirm what it understood and where it goes — then launch.</p>
         <nav className={styles.crumbs}>
-          <a href="/report">Resident voice door (the mic) →</a>
-          <a href="/desk">Department queue →</a>
+          <a href="/report">Resident report door (the mic) →</a>
+          <a href="/desk">Your department queue →</a>
         </nav>
         <p className={styles.subHint}>
           Residents speak at <code>/report</code>; their drops land in the queue below. The box here is a manual fallback.
@@ -511,6 +511,7 @@ function Canvas({
     if ((e.target as HTMLElement).closest(`.${styles.node}`)) return;
     const el = panRef.current;
     if (!el) return;
+    e.preventDefault(); // stop text-selection from hijacking the drag
     panState.current = { startX: e.clientX, startLeft: el.scrollLeft, active: true };
     el.setPointerCapture(e.pointerId);
   }
