@@ -82,3 +82,30 @@
 .tval { font-size: 1.1rem; font-weight: 600; }
 .tlabel { font-size: 0.74rem; color: #8aa0b4; margin-top: 0.2rem; }
 .notFound { text-align: center; padding: 3rem 1rem; color: #9fb3c6; }
+
+/* the original record */
+.record {
+  background: var(--card, #0E1424);
+  border: 1px solid var(--line, rgba(140,160,200,.10));
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 18px;
+}
+.recordHead {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cyan, #38BDF8);
+  margin-bottom: 10px;
+}
+.recordRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 14px;
+  padding: 4px 0;
+  font-size: 14px;
+}
+.recordKey { color: var(--muted, #8A93A6); flex-shrink: 0; }
+.recordVal { color: var(--text, #E8ECF3); text-align: right; }

@@ -70,6 +70,8 @@ export default function IntakeConsole() {
   const [voted, setVoted] = useState<'up' | 'down' | null>(null);
   const [launchMeta, setLaunchMeta] = useState<{ submittedAt: string; launchedBy: string } | null>(null);
 
+  const [me, setMe] = useState<string | null>(null);
+
   async function loadQueue() {
     try {
       const res = await fetch('/api/v2/pending');
@@ -80,7 +82,14 @@ export default function IntakeConsole() {
       /* ignore */
     }
   }
-  useEffect(() => { loadQueue(); }, []);
+  useEffect(() => {
+    loadQueue();
+    // Who am I? Make the role explicit — staff wear one department per session.
+    fetch('/api/desk/queue')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d?.department && setMe(d.department))
+      .catch(() => {});
+  }, []);
 
   function reviewPending(p: Pending) {
     setPendingId(p.id);
@@ -254,7 +263,10 @@ export default function IntakeConsole() {
   return (
     <main className={styles.page}>
       <header className={styles.head}>
-        <div className={styles.eyebrow}>Neuronify · Intake console</div>
+        <div className={styles.eyebrow}>
+          Neuronify · Intake console
+          {me && <span className={styles.meBadge}>signed in as {pretty(me)}</span>}
+        </div>
         <h1>Review &amp; launch a report</h1>
         <p className={styles.sub}>The agent digests a resident&apos;s report. You confirm what it understood and where it goes — then launch.</p>
         <nav className={styles.crumbs}>

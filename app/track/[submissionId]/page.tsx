@@ -64,6 +64,21 @@ export default async function TrackPage({ params }: { params: { submissionId: st
         {submission.city} · submitted {submitted}
       </div>
 
+      {/* The record — what the resident actually reported. Their words, on their page. */}
+      {submission.values.length > 0 && (
+        <div className={styles.record}>
+          <div className={styles.recordHead}>Your report</div>
+          {submission.values.map((v) => (
+            <div key={v.fieldKey} className={styles.recordRow}>
+              <span className={styles.recordKey}>{pretty(v.fieldKey)}</span>
+              <span className={styles.recordVal}>
+                {v.value === true ? 'Yes' : v.value === false ? 'No' : String(v.value ?? '—')}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className={styles.steps}>
         {instance.steps.map((s) => {
           const badge = STEP[s.status];
