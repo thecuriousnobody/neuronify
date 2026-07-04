@@ -34,8 +34,8 @@ function loadEnvLocal() {
 }
 
 const form = {
-  id: 'form-pothole', key: 'pothole_report', title: 'Pothole report', city: 'Peoria, IL',
-  version: 1, workflowKey: 'pothole_flow',
+  id: 'form-pothole-smoke', key: 'pothole_report_smoke', title: 'Pothole report', city: 'Peoria, IL',
+  version: 1, workflowKey: 'pothole_flow_smoke',
   fields: [
     { key: 'location', label: 'Where is it?', type: 'location', required: true },
     { key: 'photos', label: 'Photo', type: 'attachment', required: true, requiresAttachment: true },
@@ -43,7 +43,7 @@ const form = {
   ],
 };
 const workflow = {
-  id: 'wf-pothole', key: 'pothole_flow', title: 'Pothole flow', version: 1,
+  id: 'wf-pothole-smoke', key: 'pothole_flow_smoke', title: 'Pothole flow', version: 1,
   steps: [
     { key: 'intake', title: 'Intake', approvals: [{ approver: 'clerk', scope: ['location', 'photos', 'hazard'] }] },
     { key: 'departmental', title: 'Departmental', approvals: [
@@ -71,7 +71,7 @@ async function main() {
               on conflict (key, version) do update set doc = excluded.doc`;
 
     const res = await submitForm(env, {
-      formKey: 'pothole_report', city: 'Peoria, IL', source: 'voice',
+      formKey: 'pothole_report_smoke', city: 'Peoria, IL', source: 'voice',
       values: [{ fieldKey: 'location', value: 'Knoxville & Sheridan' }, { fieldKey: 'hazard', value: true }],
     });
     submissionId = res.submissionId;
