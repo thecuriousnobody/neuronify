@@ -1,6 +1,8 @@
 # Neuronify v2 — Demo & Test Guide
 
 **For:** Blake (City of Peoria) and demo collaborators
+**Live:** https://neuronify.ai — `/report` is the resident door; `/desk` is the
+staff sign-in (department passcodes shared privately, never in this repo).
 **What this is:** Scenario A of the Civic Engine design, built end-to-end and working.
 A resident *speaks* a problem; an agent digests it — fills the form, classifies
 severity, routes it to the right department — and shows its work at every step;
