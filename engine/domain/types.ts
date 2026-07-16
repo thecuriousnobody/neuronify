@@ -214,11 +214,13 @@ export type ActorSide = 'external' | 'internal' | 'system';
 export type AuditEventType =
   | 'submission.created'
   | 'submission.revised' // citizen edited bounced fields on a re-submit (append-only)
+  | 'intake.recorded' // the resident's original intake conversation, preserved into the ledger
   | 'workflow.opened'
   | 'step.opened'
   | 'decision.recorded'
   | 'resubmit.requested'
   | 'resubmit.fulfilled'
+  | 'approval.reassigned' // staff re-routed a review step to another department (with reason)
   | 'step.closed'
   | 'workflow.closed'
   | 'communication.sent';

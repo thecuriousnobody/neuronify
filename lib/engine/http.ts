@@ -17,6 +17,11 @@ const STATUS: Record<WorkflowErrorCode, number> = {
   REASON_REQUIRED: 400,
   RESUBMIT_SCOPE_REQUIRED: 400,
   RESUBMIT_SCOPE_OUT_OF_BOUNDS: 400,
+  // reassignment: missing/duplicate target is bad input; state conflicts are 409.
+  REASSIGN_TARGET_REQUIRED: 400,
+  REASSIGN_NOOP: 400,
+  REASSIGN_TARGET_ON_STEP: 409,
+  APPROVAL_ALREADY_DECIDED: 409,
   // graph (v2): malformed input is a 400; the not-yet-supported branch is a 422.
   GRAPH_INVALID: 400,
   GRAPH_BRANCHING_NOT_SUPPORTED: 422,

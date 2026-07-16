@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import type { Submission, WorkflowDefinition } from '../domain/types';
-import { startWorkflow, decide, fulfillResubmit } from './commands';
+import { startWorkflow, decide, fulfillResubmit, reassignApproval } from './commands';
 import { deriveInstance } from './state';
 import { computeTiming } from '../timing/index';
 import { WorkflowError } from './errors';
@@ -213,6 +213,92 @@ test('timing splits internal (city) vs external (citizen) from the log', () => {
   assert.equal(pw.internalMs, 55_000);
   assert.equal(pw.loops, 1);
   assert.equal(t.byApproval['departmental::fire'].externalMs, 0);
+});
+
+test('reassign: hands the open step to another department, reason mandatory, new owner reviews afresh', () => {
+  const h = harness();
+  h.apply(startWorkflow(submission, def, h.ctx));
+
+  // cannot reassign a step that has not opened yet (departmental is not_started)
+  assert.throws(
+    () => reassignApproval(h.state(), { stepKey: 'departmental', fromApprover: 'public_works', toApprover: 'water', reason: 'x', actor: 'clerk' }, h.ctx),
+    (e: unknown) => e instanceof WorkflowError && e.code === 'STEP_NOT_OPEN',
+  );
+
+  h.apply(decide(h.state(), def, { stepKey: 'intake', approver: 'clerk', decision: 'approved' }, h.ctx));
+  // departmental now open with public_works + fire
+
+  // a reason is mandatory (Blake's "trust me" rule)
+  assert.throws(
+    () => reassignApproval(h.state(), { stepKey: 'departmental', fromApprover: 'public_works', toApprover: 'water', reason: '   ', actor: 'clerk' }, h.ctx),
+    (e: unknown) => e instanceof WorkflowError && e.code === 'REASON_REQUIRED',
+  );
+
+  const r = reassignApproval(
+    h.state(),
+    { stepKey: 'departmental', fromApprover: 'public_works', toApprover: 'water', reason: 'private property — belongs to water dept', category: 'Private Property', actor: 'clerk' },
+    h.ctx,
+  );
+  h.apply(r);
+
+  const inst = h.state();
+  const approvers = inst.steps[1].approvals.map((a) => a.approver).sort();
+  assert.deepEqual(approvers, ['fire', 'water'], 'public_works replaced by water');
+  const water = inst.steps[1].approvals.find((a) => a.approver === 'water')!;
+  assert.equal(water.status, 'pending', 'new owner reviews afresh');
+  assert.deepEqual(water.scope, ['location', 'photos'], 'scope carries over to the new owner');
+  // the new owner is notified, with the why
+  const comm = r.communications.at(-1)!;
+  assert.equal(comm.to, 'department:water');
+  assert.match(comm.message, /private property/i);
+
+  // the old department can no longer act on this step
+  assert.throws(
+    () => decide(h.state(), def, { stepKey: 'departmental', approver: 'public_works', decision: 'approved' }, h.ctx),
+    (e: unknown) => e instanceof WorkflowError && e.code === 'APPROVER_NOT_ON_STEP',
+  );
+
+  // fire + the new owner approve -> the AND-gate closes, workflow completes
+  h.apply(decide(h.state(), def, { stepKey: 'departmental', approver: 'fire', decision: 'approved' }, h.ctx));
+  h.apply(decide(h.state(), def, { stepKey: 'departmental', approver: 'water', decision: 'approved' }, h.ctx));
+  assert.equal(h.state().status, 'completed');
+});
+
+test('reassign: rejects a target already on the step and a verdict already given', () => {
+  const h = harness();
+  h.apply(startWorkflow(submission, def, h.ctx));
+  h.apply(decide(h.state(), def, { stepKey: 'intake', approver: 'clerk', decision: 'approved' }, h.ctx));
+
+  // fire is already on the departmental step
+  assert.throws(
+    () => reassignApproval(h.state(), { stepKey: 'departmental', fromApprover: 'public_works', toApprover: 'fire', reason: 'x', actor: 'clerk' }, h.ctx),
+    (e: unknown) => e instanceof WorkflowError && e.code === 'REASSIGN_TARGET_ON_STEP',
+  );
+
+  // once fire has approved, its settled verdict cannot be reassigned
+  h.apply(decide(h.state(), def, { stepKey: 'departmental', approver: 'fire', decision: 'approved' }, h.ctx));
+  assert.throws(
+    () => reassignApproval(h.state(), { stepKey: 'departmental', fromApprover: 'fire', toApprover: 'water', reason: 'x', actor: 'clerk' }, h.ctx),
+    (e: unknown) => e instanceof WorkflowError && e.code === 'APPROVAL_ALREADY_DECIDED',
+  );
+});
+
+test('intake transcript is preserved into the ledger as an append-only record', () => {
+  const h = harness();
+  // no transcript → no intake.recorded event
+  h.apply(startWorkflow(submission, def, h.ctx));
+  assert.equal(h.log.some((e) => e.type === 'intake.recorded'), false);
+
+  // with a transcript → one intake.recorded event carrying the resident's words,
+  // and it does NOT change derived workflow state (it's a record, not a transition)
+  const h2 = harness();
+  h2.apply(startWorkflow(submission, def, h2.ctx, { transcript: '  There is a pothole on Main St that could eat a car.  ' }));
+  const rec = h2.log.filter((e) => e.type === 'intake.recorded');
+  assert.equal(rec.length, 1);
+  assert.equal(rec[0].actorSide, 'external');
+  assert.equal((rec[0].payload as any).transcript, 'There is a pothole on Main St that could eat a car.'); // trimmed
+  // state still opens normally, unaffected by the record
+  assert.equal(h2.state().steps[0].status, 'open');
 });
 
 test('audit log is append-only: deriving never mutates events', () => {

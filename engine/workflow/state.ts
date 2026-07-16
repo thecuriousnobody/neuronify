@@ -69,6 +69,7 @@ function applyEvent(inst: WorkflowInstance, e: AuditEvent): void {
       const decision = p.decision as string;
       if (decision === 'approved') {
         ap.status = 'approved';
+        ap.reason = p.reason as string | undefined; // optional "what work was completed?" note
         ap.resubmitScope = undefined;
       } else if (decision === 'denied') {
         ap.status = 'denied';
@@ -87,6 +88,20 @@ function applyEvent(inst: WorkflowInstance, e: AuditEvent): void {
       ap.status = 'pending'; // back to the department for re-review (captured once: only this one)
       ap.loops += 1;
       ap.resubmitScope = undefined;
+      break;
+    }
+    case 'approval.reassigned': {
+      // Staff handed this step's sign-off to a different department. The frozen
+      // graph is untouched (immutable) — we only re-point the DERIVED approval and
+      // reset it so the new owner reviews afresh. Same scope (same fields, new owner).
+      const st = findStep(p.stepKey);
+      const ap = st?.approvals.find((a) => a.approver === p.fromApprover);
+      if (!ap) break;
+      ap.approver = p.toApprover as string;
+      ap.status = 'pending';
+      ap.reason = undefined;
+      ap.resubmitScope = undefined;
+      ap.decidedAt = undefined;
       break;
     }
     case 'step.closed': {

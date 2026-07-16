@@ -111,7 +111,7 @@ export function startWorkflow(
   submission: Submission,
   def: WorkflowDefinition,
   ctx: CommandCtx,
-  opts?: { graph?: unknown; launchedBy?: string },
+  opts?: { graph?: unknown; launchedBy?: string; transcript?: string },
 ): CommandResult & { instanceId: string } {
   const instanceId = ctx.ids.next();
   const inst = { id: instanceId, submissionId: submission.id };
@@ -135,6 +135,23 @@ export function startWorkflow(
       },
     }),
   );
+
+  // Preserve the resident's original intake conversation into the ledger, so it
+  // survives promotion (the pending row that held it is deleted afterward) and
+  // stays reconstructable from the audit log alone. No state change — a record.
+  const transcript = (opts?.transcript ?? '').trim();
+  if (transcript) {
+    out.events.push(
+      event(ctx, {
+        submissionId: submission.id,
+        workflowInstanceId: instanceId,
+        type: 'intake.recorded',
+        actor: 'citizen',
+        actorSide: 'external',
+        payload: { transcript, source: submission.source },
+      }),
+    );
+  }
 
   const first = def.steps[0];
   if (first) {
@@ -242,13 +259,19 @@ export function decide(
   }
 
   // ── APPROVED — may close the step and advance ──
+  const workNote = (input.reason ?? '').trim(); // optional "what work was completed?"
   out.events.push(
     event(ctx, {
       ...base,
       type: 'decision.recorded',
       actor: input.approver,
       actorSide: 'internal',
-      payload: { stepKey: input.stepKey, approver: input.approver, decision: 'approved' },
+      payload: {
+        stepKey: input.stepKey,
+        approver: input.approver,
+        decision: 'approved',
+        ...(workNote ? { reason: workNote } : {}),
+      },
     }),
   );
 
@@ -277,6 +300,84 @@ export function decide(
       relay(ctx, inst, 'completed', 'Your submission has completed all reviews.', out);
     }
   }
+
+  return out;
+}
+
+/**
+ * Reassign the current step's sign-off from one department to another — e.g. a
+ * tree-trimming case routed to Public Works that is actually on private property
+ * and belongs to Community Development. Appends an `approval.reassigned` event;
+ * the new department reviews afresh (its approval resets to pending). The frozen
+ * graph is never mutated — the reducer re-points the derived approval.
+ *
+ * A reason is MANDATORY: reassigning a case with no context is, per city staff,
+ * the single biggest source of downstream confusion. An optional `category`
+ * re-labels the case type on the record (e.g. Public → Private Property).
+ *
+ * MVP scope: only the CURRENT open step, and only an approval still open to
+ * decision (pending / awaiting_resubmit) — you cannot reassign a verdict already
+ * given, nor hand it to a department already on the step.
+ */
+export function reassignApproval(
+  instance: WorkflowInstance,
+  input: {
+    stepKey: string;
+    fromApprover: string;
+    toApprover: string;
+    reason: string;
+    category?: string;
+    actor: string;
+  },
+  ctx: CommandCtx,
+): CommandResult {
+  if (instance.status !== 'open') fail('WORKFLOW_NOT_OPEN', `workflow is ${instance.status}`);
+
+  const reason = (input.reason ?? '').trim();
+  if (!reason) fail('REASON_REQUIRED', 'a reassignment requires a reason');
+
+  const toApprover = (input.toApprover ?? '').trim();
+  if (!toApprover) fail('REASSIGN_TARGET_REQUIRED', 'a reassignment needs a destination department');
+  if (toApprover === input.fromApprover) fail('REASSIGN_NOOP', 'the case is already with that department');
+
+  const stepState = instance.steps.find((s) => s.stepKey === input.stepKey);
+  if (!stepState) fail('STEP_NOT_FOUND', `no step "${input.stepKey}"`);
+  if (stepState!.status !== 'open')
+    fail('STEP_NOT_OPEN', `step "${input.stepKey}" is ${stepState!.status} (only the active step can be reassigned)`);
+
+  const approval = stepState!.approvals.find((a) => a.approver === input.fromApprover);
+  if (!approval) fail('APPROVER_NOT_ON_STEP', `"${input.fromApprover}" is not an approver on this step`);
+  if (approval!.status === 'approved' || approval!.status === 'denied')
+    fail('APPROVAL_ALREADY_DECIDED', `"${input.fromApprover}" has already ${approval!.status} — reassign only a pending review`);
+  if (stepState!.approvals.some((a) => a.approver === toApprover))
+    fail('REASSIGN_TARGET_ON_STEP', `"${toApprover}" is already an approver on this step`);
+
+  const inst = { id: instance.id, submissionId: instance.submissionId };
+  const out: CommandResult = { events: [], communications: [] };
+
+  out.events.push(
+    event(ctx, {
+      submissionId: instance.submissionId,
+      workflowInstanceId: instance.id,
+      type: 'approval.reassigned',
+      actor: input.actor,
+      actorSide: 'internal',
+      payload: {
+        stepKey: input.stepKey,
+        fromApprover: input.fromApprover,
+        toApprover,
+        reason,
+        ...(input.category ? { category: input.category } : {}),
+      },
+    }),
+  );
+
+  // The new owner needs to know they've got a case — and why.
+  relay(
+    ctx, inst, 'dept_action_required',
+    `A case was reassigned to your department for review. Reason: ${reason}`,
+    out, `department:${toApprover}`,
+  );
 
   return out;
 }

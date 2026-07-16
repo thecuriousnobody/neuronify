@@ -8,7 +8,7 @@ export * from './domain/graph';
 export * from './ports';
 
 // Workflow engine
-export { startWorkflow, decide, fulfillResubmit } from './workflow/commands';
+export { startWorkflow, decide, fulfillResubmit, reassignApproval } from './workflow/commands';
 export type { CommandCtx, CommandResult } from './workflow/commands';
 export { deriveInstance } from './workflow/state';
 
@@ -24,18 +24,22 @@ export {
   submitGraph,
   recordDecision,
   recordResubmit,
+  recordReassignment,
   recordRevisionAndResubmit,
   loadInstance,
   getInstanceView,
   deskQueue,
+  deskAllCases,
   deskSubmissionDetail,
   deskDecide,
+  deskReassign,
   computeMetrics,
 } from './workflow/service';
 export type {
   LoadedInstance,
   InstanceView,
   QueueItem,
+  CaseRow,
   DeskDetail,
   TimelineEntry,
   Metrics,

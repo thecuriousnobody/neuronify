@@ -16,6 +16,11 @@ export type WorkflowErrorCode =
   | 'RESUBMIT_SCOPE_REQUIRED'
   | 'RESUBMIT_SCOPE_OUT_OF_BOUNDS'
   | 'APPROVAL_NOT_AWAITING_RESUBMIT'
+  // — reassignment —
+  | 'REASSIGN_TARGET_REQUIRED' // no destination department given
+  | 'REASSIGN_NOOP' // reassigning to the department that already owns it
+  | 'REASSIGN_TARGET_ON_STEP' // target department is already an approver on the step
+  | 'APPROVAL_ALREADY_DECIDED' // cannot reassign a verdict already given
   // — graph (v2) —
   | 'GRAPH_INVALID' // malformed graph: dangling edge, no single entry, cycle, empty approval
   | 'GRAPH_BRANCHING_NOT_SUPPORTED' // condition/fan-out node — arrives with scenario B

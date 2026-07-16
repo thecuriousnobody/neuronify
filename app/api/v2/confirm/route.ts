@@ -65,6 +65,7 @@ export async function POST(req: Request) {
       values,
       graph,
       launchedBy: staff, // the accountable human, recorded in the frozen ledger
+      transcript: pending?.transcript, // preserve the resident's original words into the ledger
     });
 
     // Carry the opt-in phone over (separate from the anonymous Record of Truth).

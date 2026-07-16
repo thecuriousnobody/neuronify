@@ -107,10 +107,6 @@ export default async function TrackPage({ params }: { params: { submissionId: st
           <div className={styles.tval}>{humanize(timing.internalMs)}</div>
           <div className={styles.tlabel}>time with the city</div>
         </div>
-        <div className={styles.tcard}>
-          <div className={styles.tval}>{humanize(timing.externalMs)}</div>
-          <div className={styles.tlabel}>time awaiting you</div>
-        </div>
       </div>
     </main>
   );

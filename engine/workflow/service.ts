@@ -23,7 +23,7 @@ import type {
 import type { WorkflowGraph } from '../domain/graph';
 import type { EngineEnv } from '../ports';
 import { computeTiming, type TimingReport } from '../timing/index';
-import { decide, fulfillResubmit, reviseAndResubmit, startWorkflow, type CommandResult } from './commands';
+import { decide, fulfillResubmit, reviseAndResubmit, startWorkflow, reassignApproval, type CommandResult } from './commands';
 import { compileGraph, startGraphWorkflow } from './graph';
 import { deriveInstance } from './state';
 import { fail } from './errors';
@@ -118,6 +118,8 @@ export async function submitGraph(
     graph: WorkflowGraph;
     /** The accountable human confirming the launch — recorded in the ledger. */
     launchedBy?: string;
+    /** The resident's original intake conversation — frozen into the ledger. */
+    transcript?: string;
   },
 ): Promise<{ submissionId: string; instanceId: string; submittedAt: string }> {
   compileGraph(input.graph); // throws GRAPH_* before any persistence
@@ -133,7 +135,7 @@ export async function submitGraph(
   };
   await env.repo.saveSubmission(submission);
 
-  const result = startGraphWorkflow(submission, input.graph, env, { launchedBy: input.launchedBy });
+  const result = startGraphWorkflow(submission, input.graph, env, { launchedBy: input.launchedBy, transcript: input.transcript });
   await commit(env, result);
   return { submissionId: submission.id, instanceId: result.instanceId, submittedAt: submission.submittedAt };
 }
@@ -147,6 +149,17 @@ export async function recordDecision(
   const loaded = await loadInstance(env, submissionId);
   if (!loaded) fail('INSTANCE_NOT_FOUND', `no workflow for submission "${submissionId}"`);
   await commit(env, decide(loaded!.instance, loaded!.def, input, env));
+}
+
+/** Staff re-route the current step's sign-off to another department (append-only). */
+export async function recordReassignment(
+  env: EngineEnv,
+  submissionId: string,
+  input: { stepKey: string; fromApprover: string; toApprover: string; reason: string; category?: string; actor: string },
+): Promise<void> {
+  const loaded = await loadInstance(env, submissionId);
+  if (!loaded) fail('INSTANCE_NOT_FOUND', `no workflow for submission "${submissionId}"`);
+  await commit(env, reassignApproval(loaded!.instance, input, env));
 }
 
 /** The citizen returns a bounced portion. */
@@ -241,6 +254,61 @@ export async function deskQueue(env: EngineEnv, department: string): Promise<Que
   return items;
 }
 
+export interface CaseRow {
+  submissionId: string;
+  formKey: string;
+  city: string;
+  submittedAt: string;
+  status: WorkflowStatus;
+  currentStepTitle: string | null;
+  /** Departments with a still-pending sign-off on the current step. */
+  currentReviewers: string[];
+  /** Wall-clock age: submittedAt → resolvedAt (if closed) or now. */
+  elapsedMs: number;
+  resolvedAt: string | null;
+}
+
+/**
+ * Every case in the city, any status — the operator's "all cases" list.
+ * Fixes the queue's blind spot: deskQueue only surfaces what is pending on YOU,
+ * so resolved cases and other departments' work vanish from view. This lists
+ * them all. Derive-on-read like the queue; a materialized index can come later.
+ */
+export async function deskAllCases(
+  env: EngineEnv,
+  opts: { city?: string } = {},
+): Promise<CaseRow[]> {
+  const ids = await env.repo.listAllSubmissionIds();
+  const nowMs = new Date(env.clock.now()).getTime();
+  const rows: CaseRow[] = [];
+  for (const id of ids) {
+    const loaded = await loadInstance(env, id);
+    if (!loaded) continue;
+    if (opts.city && loaded.submission.city !== opts.city) continue;
+    const openStep = loaded.instance.steps.find((s) => s.status === 'open');
+    const stepDef = openStep ? loaded.def.steps.find((s) => s.key === openStep.stepKey) : undefined;
+    const currentReviewers = openStep
+      ? openStep.approvals.filter((a) => a.status === 'pending').map((a) => a.approver)
+      : [];
+    const closed = loaded.events.find((e) => e.type === 'workflow.closed');
+    const resolvedAt = closed?.at ?? null;
+    const startMs = new Date(loaded.submission.submittedAt).getTime();
+    const endMs = resolvedAt ? new Date(resolvedAt).getTime() : nowMs;
+    rows.push({
+      submissionId: id,
+      formKey: loaded.submission.formKey,
+      city: loaded.submission.city,
+      submittedAt: loaded.submission.submittedAt,
+      status: loaded.instance.status,
+      currentStepTitle: stepDef?.title ?? openStep?.stepKey ?? null,
+      currentReviewers,
+      elapsedMs: Math.max(0, endMs - startMs),
+      resolvedAt,
+    });
+  }
+  return rows;
+}
+
 export interface TimelineEntry {
   at: string;
   label: string;
@@ -260,13 +328,20 @@ function buildTimeline(events: AuditEvent[], def: WorkflowDefinition): TimelineE
         break;
       case 'decision.recorded': {
         const who = String(p.approver);
-        if (p.decision === 'approved') out.push({ at: e.at, label: `${who} approved their portion` });
+        if (p.decision === 'approved')
+          out.push({ at: e.at, label: `${who} approved their portion${p.reason ? ` — ${String(p.reason)}` : ''}` });
         else if (p.decision === 'denied')
           out.push({ at: e.at, label: `${who} denied — ${String(p.reason ?? '')}` });
         else if (p.decision === 'requires_resubmit')
           out.push({ at: e.at, label: `${who} requested a re-submit (${(p.resubmitScope as string[] | undefined)?.join(', ') ?? ''})` });
         break;
       }
+      case 'approval.reassigned':
+        out.push({
+          at: e.at,
+          label: `Reassigned from ${String(p.fromApprover)} to ${String(p.toApprover)}${p.category ? ` — recategorized as ${String(p.category)}` : ''} — reason: ${String(p.reason ?? '')}`,
+        });
+        break;
       case 'resubmit.fulfilled':
         out.push({ at: e.at, label: `Resident re-submitted the requested portion` });
         break;
@@ -297,6 +372,8 @@ export interface DeskDetail {
   steps: { key: string; title: string; status: string; approvals: { approver: string; status: ApprovalStatus }[] }[];
   timeline: TimelineEntry[];
   timing: { internalMs: number; externalMs: number };
+  /** The resident's original intake conversation, if preserved into the ledger. */
+  intake: { transcript: string; source: string; at: string } | null;
 }
 
 /** Everything the approver detail screen needs, scoped to the signed-in department. */
@@ -311,6 +388,15 @@ export async function deskSubmissionDetail(
   const openStep = loaded.instance.steps.find((s) => s.status === 'open');
   const myApproval = openStep?.approvals.find((a) => a.approver === department) ?? null;
   const timing = computeTiming(loaded.events, env.clock.now());
+
+  const intakeEvent = loaded.events.find((e) => e.type === 'intake.recorded');
+  const intake = intakeEvent
+    ? {
+        transcript: String((intakeEvent.payload as Record<string, unknown>).transcript ?? ''),
+        source: String((intakeEvent.payload as Record<string, unknown>).source ?? ''),
+        at: intakeEvent.at,
+      }
+    : null;
 
   return {
     submissionId,
@@ -333,6 +419,7 @@ export async function deskSubmissionDetail(
     })),
     timeline: buildTimeline(loaded.events, loaded.def),
     timing: { internalMs: timing.internalMs, externalMs: timing.externalMs },
+    intake,
   };
 }
 
@@ -438,5 +525,36 @@ export async function deskDecide(
     decision: input.decision,
     reason: input.reason,
     resubmitScope: input.resubmitScope,
+  });
+}
+
+/**
+ * Reassign the case from the console. The signed-in department (from the verified
+ * cookie) is the CURRENT owner handing the case off; we resolve the open step
+ * where their sign-off is still pending and re-route it to `toApprover`. Fails
+ * closed if this department has nothing to hand off here.
+ */
+export async function deskReassign(
+  env: EngineEnv,
+  department: string,
+  input: { submissionId: string; toApprover: string; reason: string; category?: string },
+): Promise<void> {
+  const loaded = await loadInstance(env, input.submissionId);
+  if (!loaded) fail('INSTANCE_NOT_FOUND', `no workflow for submission "${input.submissionId}"`);
+  const openStep = loaded!.instance.steps.find(
+    (s) =>
+      s.status === 'open' &&
+      s.approvals.some(
+        (a) => a.approver === department && (a.status === 'pending' || a.status === 'awaiting_resubmit'),
+      ),
+  );
+  if (!openStep) fail('APPROVAL_NOT_PENDING', `"${department}" has nothing to reassign on this submission`);
+  await recordReassignment(env, input.submissionId, {
+    stepKey: openStep!.stepKey,
+    fromApprover: department, // forced from the verified session
+    toApprover: input.toApprover,
+    reason: input.reason,
+    category: input.category,
+    actor: department,
   });
 }

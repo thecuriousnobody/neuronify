@@ -334,19 +334,19 @@ export default function IntakeConsole() {
 
       {launchedId && (
         <div className={styles.receipt}>
-          <div className={styles.receiptHead}>Launch record</div>
+          <div className={styles.receiptHead}>Case created</div>
           <dl className={styles.receiptGrid}>
             <dt>Reference</dt>
             <dd><code>{launchedId}</code></dd>
-            <dt>Launched</dt>
+            <dt>Created</dt>
             <dd>{launchMeta ? new Date(launchMeta.submittedAt).toLocaleString() : '—'}</dd>
-            <dt>Launched by</dt>
+            <dt>Created by</dt>
             <dd>{launchMeta ? pretty(launchMeta.launchedBy) : '—'}</dd>
             <dt>Route</dt>
             <dd>{graph ? graph.nodes.filter((n) => n.kind === 'approval').map((n) => n.title).join(' → ') : '—'}</dd>
           </dl>
           <div className={styles.receiptFoot}>
-            Frozen into the audit ledger. <a href={`/track/${launchedId}`}>Track it →</a>
+            The case is now live. <a href={`/track/${launchedId}`}>Track it →</a>
           </div>
         </div>
       )}
@@ -406,12 +406,11 @@ export default function IntakeConsole() {
                 onChange={(e) => setDiligence(e.target.checked)}
               />
               <span>
-                I&apos;ve reviewed the details, severity, and routing. Launching freezes this
-                workflow into the audit record under my department&apos;s name.
+                I&apos;ve reviewed the details, severity, and routing before creating this case.
               </span>
             </label>
             <button className={styles.launch} onClick={launch} disabled={launching || !diligence} type="button">
-              {launching ? 'Launching…' : 'Confirm & Launch'}
+              {launching ? 'Creating…' : 'Create the case'}
             </button>
           </div>
 
@@ -452,7 +451,7 @@ export default function IntakeConsole() {
                   </div>
                 )}
                 <label className={styles.fieldLabel}>
-                  Staff note — frozen into the audit record at launch
+                  Staff note — saved with the case
                 </label>
                 <textarea
                   className={styles.noteBox}
