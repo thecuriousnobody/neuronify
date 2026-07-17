@@ -1,0 +1,430 @@
+<title>Neuronify · Smart Intake — 311 Taxonomy & Data-Model Proposal</title>
+<style>
+  :root {
+    --bg: #F4F6F9;
+    --panel: #ffffff;
+    --panel-2: #f7f9fb;
+    --text: #14202e;
+    --muted: #566677;
+    --faint: #8695a6;
+    --line: #e1e7ee;
+    --line-strong: #cfd8e2;
+    --accent: #2563eb;
+    --accent-ink: #1d4ed8;
+    --ok: #157347;      --ok-bg: #e5f3ea;   --ok-line: #bfe0cb;
+    --partial: #a4620f; --partial-bg: #fbeeda; --partial-line: #eccf9c;
+    --road: #566677;    --road-bg: #eaeef3;  --road-line: #d3dbe4;
+    --serif: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+    --sans: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0F1822; --panel: #15222e; --panel-2: #12202b;
+      --text: #e8edf2; --muted: #93a6b8; --faint: #6c8093;
+      --line: #22323f; --line-strong: #2c3f4d;
+      --accent: #7cc0ff; --accent-ink: #9ed3ff;
+      --ok: #6fd79b;      --ok-bg: #113123;   --ok-line: #1f5034;
+      --partial: #e6b264; --partial-bg: #2b2010; --partial-line: #4a381a;
+      --road: #93a6b8;    --road-bg: #1b2833;  --road-line: #2c3f4d;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F4F6F9; --panel: #ffffff; --panel-2: #f7f9fb;
+    --text: #14202e; --muted: #566677; --faint: #8695a6;
+    --line: #e1e7ee; --line-strong: #cfd8e2;
+    --accent: #2563eb; --accent-ink: #1d4ed8;
+    --ok: #157347; --ok-bg: #e5f3ea; --ok-line: #bfe0cb;
+    --partial: #a4620f; --partial-bg: #fbeeda; --partial-line: #eccf9c;
+    --road: #566677; --road-bg: #eaeef3; --road-line: #d3dbe4;
+  }
+  :root[data-theme="dark"] {
+    --bg: #0F1822; --panel: #15222e; --panel-2: #12202b;
+    --text: #e8edf2; --muted: #93a6b8; --faint: #6c8093;
+    --line: #22323f; --line-strong: #2c3f4d;
+    --accent: #7cc0ff; --accent-ink: #9ed3ff;
+    --ok: #6fd79b; --ok-bg: #113123; --ok-line: #1f5034;
+    --partial: #e6b264; --partial-bg: #2b2010; --partial-line: #4a381a;
+    --road: #93a6b8; --road-bg: #1b2833; --road-line: #2c3f4d;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: var(--sans); font-size: 15px; line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 940px; margin-inline: auto; padding: clamp(1.25rem, 4vw, 3rem) 1.25rem 4rem; }
+
+  a { color: var(--accent-ink); text-underline-offset: 2px; }
+  code { font-family: var(--mono); font-size: 0.86em; background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px; padding: 0.1em 0.4em; }
+  strong { font-weight: 650; }
+
+  header.top { border-bottom: 1px solid var(--line); padding-bottom: 1.6rem; margin-bottom: 1.8rem; }
+  .eyebrow { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent-ink); margin: 0 0 0.7rem; }
+  h1 { font-family: var(--serif); font-weight: 700; font-size: clamp(1.8rem, 4vw, 2.5rem); line-height: 1.1; letter-spacing: -0.01em; margin: 0 0 0.6rem; text-wrap: balance; }
+  .sub { color: var(--muted); font-size: 1.02rem; margin: 0; max-width: 66ch; }
+  .metaline { margin-top: 1rem; font-size: 0.82rem; color: var(--faint); display: flex; flex-wrap: wrap; gap: 0.4rem 1.1rem; }
+  .metaline b { color: var(--muted); font-weight: 600; }
+  .metaline .draft { color: var(--partial); font-weight: 700; }
+
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0.75rem; margin-bottom: 1.8rem; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 0.9rem 1rem; }
+  .tile .n { font-size: 1.9rem; font-weight: 750; line-height: 1; font-variant-numeric: tabular-nums; }
+  .tile .l { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-top: 0.35rem; }
+  .tile.ok .n { color: var(--ok); }
+  .tile.partial .n { color: var(--partial); }
+  .tile.road .n { color: var(--road); }
+
+  .callout { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 10px; padding: 1.1rem 1.2rem; margin-bottom: 2.2rem; }
+  .callout h2 { font-size: 0.95rem; margin: 0 0 0.6rem; letter-spacing: 0.01em; }
+  .callout p { margin: 0 0 0.7rem; color: var(--muted); font-size: 0.93rem; }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout .k { color: var(--text); font-weight: 650; }
+  .warn { color: var(--partial); font-weight: 600; }
+
+  section { margin-bottom: 2.4rem; }
+  .shead { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; border-bottom: 2px solid var(--line-strong); padding-bottom: 0.5rem; margin-bottom: 1rem; }
+  .shead h2 { font-size: 1.28rem; margin: 0; letter-spacing: -0.01em; }
+  .shead .kicker { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+  p.lede { color: var(--muted); font-size: 0.96rem; margin: 0 0 1rem; max-width: 72ch; }
+
+  .tblwrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+  table { border-collapse: collapse; width: 100%; font-size: 0.87rem; }
+  th, td { text-align: left; padding: 0.55rem 0.7rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  thead th { background: var(--panel-2); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); position: sticky; top: 0; }
+  tbody tr:last-child td { border-bottom: 0; }
+  td code, th code { background: transparent; border: 0; padding: 0; color: var(--accent-ink); font-size: 0.82rem; }
+  td .div { color: var(--partial); font-weight: 650; }
+  .num { color: var(--faint); font-variant-numeric: tabular-nums; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; }
+  @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 0.9rem 1rem; }
+  .card h3 { margin: 0 0 0.15rem; font-size: 0.98rem; }
+  .card h3 code { color: var(--accent-ink); }
+  .card .dept { font-size: 0.76rem; color: var(--faint); margin: 0 0 0.6rem; }
+  .card ul { margin: 0; padding-left: 1.05rem; }
+  .card li { font-size: 0.85rem; margin-bottom: 0.32rem; color: var(--text); }
+  .card li .g { color: var(--muted); }
+  .req { color: var(--ok); font-weight: 700; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; }
+  .photo { color: var(--partial); font-weight: 700; font-size: 0.72rem; }
+
+  .chip { display: inline-block; font-size: 0.72rem; font-weight: 650; padding: 0.12rem 0.45rem; border-radius: 999px; border: 1px solid var(--line-strong); color: var(--muted); background: var(--panel-2); }
+  .chip.photo { color: var(--partial); background: var(--partial-bg); border-color: var(--partial-line); }
+
+  .ba { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; }
+  @media (max-width: 720px) { .ba { grid-template-columns: 1fr; } }
+  .ba .b { border-radius: 10px; padding: 0.9rem 1rem; border: 1px solid var(--line); }
+  .ba .before { background: var(--road-bg); border-color: var(--road-line); }
+  .ba .after { background: var(--ok-bg); border-color: var(--ok-line); }
+  .ba h4 { margin: 0 0 0.5rem; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; }
+  .ba .before h4 { color: var(--road); }
+  .ba .after h4 { color: var(--ok); }
+  .ba ol { margin: 0; padding-left: 1.1rem; font-size: 0.87rem; }
+  .ba li { margin-bottom: 0.3rem; }
+
+  ol.q { counter-reset: q; list-style: none; margin: 0; padding: 0; }
+  ol.q li { position: relative; padding: 0.75rem 0 0.75rem 2.4rem; border-bottom: 1px solid var(--line); }
+  ol.q li:last-child { border-bottom: 0; }
+  ol.q li::before { counter-increment: q; content: counter(q); position: absolute; left: 0; top: 0.72rem; width: 1.55rem; height: 1.55rem; border-radius: 50%; background: var(--accent); color: #fff; font-size: 0.8rem; font-weight: 700; display: grid; place-items: center; }
+  @media (prefers-color-scheme: dark) { ol.q li::before { color: #0F1822; } }
+  ol.q .qt { font-weight: 650; }
+  ol.q .qd { color: var(--muted); font-size: 0.9rem; }
+
+  .note { background: var(--partial-bg); border: 1px solid var(--partial-line); border-left: 3px solid var(--partial); border-radius: 10px; padding: 0.85rem 1.05rem; margin: 1rem 0; font-size: 0.9rem; }
+  .note .dh { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--partial); margin: 0 0 0.35rem; }
+
+  .maplist { margin: 0.4rem 0 0; padding-left: 1.1rem; color: var(--muted); font-size: 0.9rem; }
+  .maplist li { margin-bottom: 0.35rem; }
+  .maplist b { color: var(--text); }
+
+  footer { border-top: 1px solid var(--line); margin-top: 2.5rem; padding-top: 1.2rem; color: var(--faint); font-size: 0.8rem; }
+  footer b { color: var(--muted); }
+  footer p { margin: 0 0 0.5rem; }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <p class="eyebrow">Smart Intake · Data-Model Proposal</p>
+    <h1>A discrete 311 taxonomy for citizen intake</h1>
+    <p class="sub">Replacing free-text categories with a real, 311-sourced taxonomy so a report routes straight to the owning department — and defining the category-specific fields the conversation collects. This is the research step; <b>no code yet</b>.</p>
+    <div class="metaline">
+      <span><b>Status:</b> <span class="draft">Draft — for Rajeev + Blake to react to</span></span>
+      <span><b>Date:</b> 2026-07-17</span>
+      <span><b>Sources:</b> Peoria &amp; Evanston live 311 + Chicago / CivicPlus / Open311</span>
+    </div>
+  </header>
+
+  <div class="tiles">
+    <div class="tile"><div class="n">~22</div><div class="l">Core categories</div></div>
+    <div class="tile ok"><div class="n">2</div><div class="l">Cities mapped</div></div>
+    <div class="tile partial"><div class="n">8</div><div class="l">Photo-critical</div></div>
+    <div class="tile road"><div class="n">0</div><div class="l">New primitives</div></div>
+  </div>
+
+  <div class="callout">
+    <h2>The two findings that shape everything</h2>
+    <p><span class="k">1 · Real 311 is two-level and department-owned.</span> Peoria (Peoria Cares / uReport) uses <code>category → issue type</code>. Evanston (Catalis / QScend, read verbatim 2026-07-17) exposes <span class="k">17 top-level options that <em>are</em> the owning departments</span>, each expanding into request types. So the native shape everywhere is <code>category → owning department → fields</code> — exactly what we should model.</p>
+    <p><span class="k">2 · Neither city collects category-specific fields.</span> Both are <em>flat</em> forms — location + description + photo + contact, identical for every type. That makes our <span class="k">per-category required fields + conversational refinement a real differentiator</span>, not catch-up.</p>
+    <p><b>Design consequence:</b> the LLM's job shrinks to picking one discrete <span class="k">category</span>. Category → department is a per-city <em>lookup table</em> (data). Category → fields is a <em>form definition</em> (data). The model proposes one enum value; everything downstream is deterministic and auditable.</p>
+  </div>
+
+  <section>
+    <div class="shead"><h2>1 · It maps onto what we already have</h2><span class="kicker">Assembly, not from scratch</span></div>
+    <div class="tblwrap">
+      <table>
+        <thead><tr><th>Need</th><th>Already exists</th><th>Change</th></tr></thead>
+        <tbody>
+          <tr><td>Typed, required, guided fields per category</td><td><code>FormField</code> — text/longtext/number/boolean/choice/location/date/attachment, <code>required</code>, <code>choices</code>, per-field <code>prompt</code>, <code>requiresAttachment</code></td><td>None — schemas fit as-is (one gap, §5)</td></tr>
+          <tr><td>Per-category schemas as data</td><td>Forms live in <code>nf_form_definitions</code> (JSONB)</td><td>Author N category forms vs. one</td></tr>
+          <tr><td>One-question-at-a-time, code-enforced completeness, review-before-submit</td><td><code>runIntakeTurn</code> (<code>engine/intake/conversation.ts</code>)</td><td>Reuse verbatim once category is chosen</td></tr>
+          <tr><td>Constrain a model choice to an allow-list, fail-safe</td><td><code>classify()</code> already clamps <code>department</code> and defaults safely</td><td>Apply the <b>same pattern to <code>category</code></b> (today it's free text)</td></tr>
+          <tr><td>Address completion</td><td>Census geocode (<code>lib/geocode.ts</code>, already on <code>/report</code>)</td><td>Wire into the conversation</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="lede" style="margin-top:1rem">The one genuinely new step: today <code>formKey</code> is fixed up front. In Smart Intake the agent must <b>discern the category first</b>, then load that category's schema and run the existing collection loop. <b>Open311 GeoReport v2</b> gives a proven grammar — its datatypes map ~1:1 onto our <code>FieldType</code> (the one exception, <code>multivaluelist</code>, is §5).</p>
+  </section>
+
+  <section>
+    <div class="shead"><h2>2 · Proposed CORE taxonomy</h2><span class="kicker">~22 categories · per-city owner</span></div>
+    <p class="lede">One shared canonical core, grounded in the Peoria + Evanston overlap and the common-core reference (Chicago's 110 live SR types, CivicPlus defaults). Each row: a stable <code>category_key</code> (the enum the LLM picks) and the owning department <em>per city</em> — which genuinely differs, which is why the map is data. <span class="div">Orange</span> = a divergence to confirm.</p>
+    <div class="tblwrap">
+      <table>
+        <thead><tr><th class="num">#</th><th><code>category_key</code></th><th>Plain name</th><th>Peoria owner</th><th>Evanston owner</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td class="num">1</td><td><code>pothole</code></td><td>Pothole / road surface</td><td>Public Works</td><td>PW Agency</td><td>IDOT/County roads redirect</td></tr>
+          <tr><td class="num">2</td><td><code>street_light</code></td><td>Street light out</td><td>Public Works</td><td>PW Agency</td><td></td></tr>
+          <tr><td class="num">3</td><td><code>sidewalk_damage</code></td><td>Sidewalk / trip hazard</td><td>Public Works</td><td>PW Agency</td><td></td></tr>
+          <tr><td class="num">4</td><td><code>traffic_sign_signal</code></td><td>Traffic signal / sign</td><td>Public Works</td><td>PW Agency</td><td></td></tr>
+          <tr><td class="num">5</td><td><code>snow_ice</code></td><td>Snow / ice removal</td><td>Public Works</td><td>PW Agency</td><td></td></tr>
+          <tr><td class="num">6</td><td><code>missed_collection</code></td><td>Missed garbage / recycling</td><td>PW (GFL hauls)</td><td>PW Agency</td><td></td></tr>
+          <tr><td class="num">7</td><td><code>cart_issue</code></td><td>Cart / bin damaged / missing</td><td>Public Works</td><td>PW Agency</td><td></td></tr>
+          <tr><td class="num">8</td><td><code>illegal_dumping</code></td><td>Illegal dumping / litter</td><td>Code Enf. — Environmental</td><td>Health / PW</td><td></td></tr>
+          <tr><td class="num">9</td><td><code>tree_issue</code></td><td>Tree down / limb / dead</td><td>Code Enf. / PW</td><td>PW Agency (Forestry)</td><td>public-vs-private gates city duty</td></tr>
+          <tr><td class="num">10</td><td><code>graffiti</code></td><td>Graffiti</td><td>Police</td><td>Police</td><td>both → Police</td></tr>
+          <tr><td class="num">11</td><td><code>abandoned_vehicle</code></td><td>Abandoned vehicle</td><td>Code Enf. / Police</td><td>Police</td><td></td></tr>
+          <tr><td class="num">12</td><td><code>tall_grass_weeds</code></td><td>Tall grass / overgrowth</td><td class="div">Code Enf. — Environmental</td><td class="div">Community Dev.</td><td>divergent owner</td></tr>
+          <tr><td class="num">13</td><td><code>property_maintenance</code></td><td>Exterior property condition</td><td>Code Enf. — Housing</td><td>Community Dev.</td><td>siding / gutters / boarded / roof</td></tr>
+          <tr><td class="num">14</td><td><code>vacant_abandoned_property</code></td><td>Vacant / unsecured building</td><td>Code Enf.</td><td>Community Dev.</td><td></td></tr>
+          <tr><td class="num">15</td><td><code>rodent_pest</code></td><td>Rodents / rats / insects</td><td class="div">Code Enf. (rat abatement)</td><td class="div">Health &amp; Human Svcs</td><td>divergent owner</td></tr>
+          <tr><td class="num">16</td><td><code>dead_animal</code></td><td>Dead animal pickup</td><td>PW / Police</td><td class="div">Police (public); dead rodent → Health</td><td></td></tr>
+          <tr><td class="num">17</td><td><code>animal_concern</code></td><td>Stray / injured / dangerous</td><td>Police / Animal Ctrl</td><td>Police</td><td></td></tr>
+          <tr><td class="num">18</td><td><code>water_sewer</code></td><td>Water main / no water / sewer</td><td class="div">→ Illinois American Water (private)</td><td>Water Production</td><td><b>Peoria water is a private utility — route OUT</b></td></tr>
+          <tr><td class="num">19</td><td><code>flooding_drainage</code></td><td>Street flooding / catch basin</td><td>PW / Engineering</td><td>PW Agency</td><td>can fold into #18</td></tr>
+          <tr><td class="num">20</td><td><code>noise_complaint</code></td><td>Noise / amplified sound</td><td>Police</td><td>Police (amplified → Health)</td><td></td></tr>
+          <tr><td class="num">21</td><td><code>park_maintenance</code></td><td>Park equipment / restroom</td><td>Parks &amp; Rec</td><td>Parks &amp; Rec</td><td></td></tr>
+          <tr><td class="num">22</td><td><code>other_inquiry</code></td><td>Anything else / question</td><td>Clerk / general queue</td><td>Dept "Ask a Question"</td><td>catch-all — every system keeps one</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note">
+      <p class="dh">Divergences to confirm — this is why the map is per-city data, not intuition</p>
+      <ul class="maplist" style="margin-top:0.2rem">
+        <li><b>Rodents / pests:</b> Peoria → Code Enforcement; Evanston → Health &amp; Human Services.</li>
+        <li><b>Dead animal:</b> Evanston → Police (public property), but dead <em>rodent</em> → Health.</li>
+        <li><b>Tall grass / exterior:</b> Peoria → Code Enforcement; Evanston → Community Development.</li>
+        <li><b>Water / sewer:</b> Evanston has a Water Production dept; <b>Peoria's drinking water is Illinois American Water (private)</b> — route to a "contact your utility" outcome, not a city department.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead"><h2>3 · Category field schemas</h2><span class="kicker">The differentiator</span></div>
+    <p class="lede">Every category shares a <b>base schema</b> — <code>location</code> (required, asked early: Evanston gates the category behind location), <code>description</code> (required), and <code>photo</code> (required only for the photo-critical cluster). Then each adds its own attributes, with plain-language guidance in <code>prompt</code>. <span class="chip photo">photo required</span> marks the photo-critical cluster.</p>
+
+    <div class="note">
+      <p class="dh">⚠ Dependency</p>
+      Photo upload is currently <b>stubbed</b> (<code>/api/v2/submit</code> defers attachments). Real image upload + storage <b>must ship first</b> before any category can hard-require a photo. This is the #1 enabling task.
+    </div>
+
+    <div class="grid2" style="margin-top:1rem">
+      <div class="card"><h3><code>pothole</code></h3><p class="dept">Public Works · <span class="photo">photo required</span></p><ul>
+        <li><b>road_position</b> <span class="req">choice</span> — travel lane / curb / intersection / alley</li>
+        <li><b>size</b> <span class="req">choice</span> — <span class="g">small (&lt; dinner plate) · medium (plate–tire) · large (&gt; tire / spans lane)</span></li>
+        <li><b>hazard</b> <span class="req">bool</span> — <span class="g">dangerous to drive/walk over?</span></li>
+        <li><b>photo</b> <span class="photo">required</span></li>
+      </ul></div>
+
+      <div class="card"><h3><code>graffiti</code></h3><p class="dept">Police · <span class="photo">photo required</span></p><ul>
+        <li><b>surface</b> <span class="req">choice</span> — building / fence / sidewalk / sign / utility box / underpass</li>
+        <li><b>property</b> <span class="req">choice</span> — public / private</li>
+        <li><b>offensive</b> <span class="g">bool — hate speech / offensive? (raises priority)</span></li>
+        <li><b>photo</b> <span class="photo">required</span></li>
+      </ul></div>
+
+      <div class="card"><h3><code>illegal_dumping</code></h3><p class="dept">Code Enf. / Health · <span class="photo">photo required</span></p><ul>
+        <li><b>material</b> <span class="req">choice</span> — household / construction / tires / appliances / furniture / hazardous <span class="g">(§5 multi?)</span></li>
+        <li><b>volume</b> <span class="req">choice</span> — a few items / truck load / more</li>
+        <li><b>on_property</b> <span class="req">choice</span> — public land / private</li>
+        <li><b>photo</b> <span class="photo">required</span></li>
+      </ul></div>
+
+      <div class="card"><h3><code>tree_issue</code></h3><p class="dept">Public Works / Forestry</p><ul>
+        <li><b>ownership</b> <span class="req">choice</span> — parkway / in a park / private <span class="g">(city handles public only)</span></li>
+        <li><b>problem</b> <span class="req">choice</span> — fallen/blocking / dead / needs trim / debris</li>
+        <li><b>on_wires</b> <span class="g">bool — touching power lines? (safety escalation)</span></li>
+      </ul></div>
+
+      <div class="card"><h3><code>sidewalk_damage</code></h3><p class="dept">Public Works · <span class="photo">photo required</span></p><ul>
+        <li><b>problem</b> <span class="req">choice</span> — cracked/heaved / missing section / trip hazard / obstruction</li>
+        <li><b>photo</b> <span class="photo">required</span></li>
+      </ul></div>
+
+      <div class="card"><h3><code>abandoned_vehicle</code></h3><p class="dept">Police · <span class="photo">photo required</span></p><ul>
+        <li><b>plate</b> <span class="req">text</span></li>
+        <li><b>vehicle</b> <span class="g">text — make, model, color</span></li>
+        <li><b>days_parked</b> <span class="req">choice</span> — &lt;3 / 3–7 / over a week</li>
+        <li><b>on_property</b> <span class="req">choice</span> — public street / private lot</li>
+        <li><b>photo</b> <span class="photo">required</span></li>
+      </ul></div>
+
+      <div class="card"><h3><code>street_light</code></h3><p class="dept">Public Works</p><ul>
+        <li><b>pole_id</b> <span class="g">text — the number on the pole tag, if visible</span></li>
+        <li><b>failure</b> <span class="req">choice</span> — fully out / on during day / flickering</li>
+      </ul></div>
+
+      <div class="card"><h3><code>missed_collection</code></h3><p class="dept">Public Works</p><ul>
+        <li><b>stream</b> <span class="req">choice</span> — garbage / recycling / yard waste</li>
+        <li><b>set_out_on_time</b> <span class="req">bool</span> — <span class="g">out by the deadline?</span></li>
+        <li><b>collection_day</b> <span class="g">text — optional</span></li>
+      </ul></div>
+
+      <div class="card"><h3><code>cart_issue</code></h3><p class="dept">Public Works</p><ul>
+        <li><b>cart</b> <span class="req">choice</span> — garbage / recycling / yard waste</li>
+        <li><b>request</b> <span class="req">choice</span> — damaged / missing / new / resize</li>
+      </ul></div>
+
+      <div class="card"><h3><code>rodent_pest</code></h3><p class="dept">Code Enf. (Peoria) / Health (Evanston)</p><ul>
+        <li><b>pest</b> <span class="req">choice</span> — rats/mice / insects / mosquitoes / bees/wasps / other</li>
+        <li><b>where</b> <span class="req">choice</span> — inside / outside-yard / alley</li>
+      </ul></div>
+
+      <div class="card"><h3><code>dead_animal</code></h3><p class="dept">PW / Police · <span class="div">routing branches on animal</span></p><ul>
+        <li><b>animal</b> <span class="req">choice</span> — domestic pet / wild / rodent <span class="g">(rodent → Health in Evanston)</span></li>
+        <li><b>on_property</b> <span class="req">choice</span> — public right-of-way / private</li>
+      </ul></div>
+
+      <div class="card"><h3><code>animal_concern</code></h3><p class="dept">Police / Animal Control</p><ul>
+        <li><b>situation</b> <span class="req">choice</span> — stray / injured / aggressive / nuisance</li>
+        <li><b>kind</b> <span class="req">choice</span> — domestic / wild</li>
+      </ul></div>
+
+      <div class="card"><h3><code>tall_grass_weeds</code></h3><p class="dept">Code Enf. / Community Dev. · <span class="photo">photo required</span></p><ul>
+        <li><b>address</b> <span class="req">location</span></li>
+        <li><b>condition</b> <span class="req">choice</span> — tall grass/weeds / general overgrowth <span class="g">(Peoria acts &gt;~10 in.)</span></li>
+        <li><b>photo</b> <span class="photo">required</span></li>
+      </ul></div>
+
+      <div class="card"><h3><code>property_maintenance</code></h3><p class="dept">Code Enf. / Community Dev. · <span class="photo">photo required</span></p><ul>
+        <li><b>issue</b> <span class="req">choice</span> — paint / siding / gutters / rotting wood / boarded / fence / roof <span class="g">(§5 multi?)</span></li>
+        <li><b>occupied</b> <span class="req">choice</span> — occupied / vacant / unknown</li>
+        <li><b>photo</b> <span class="photo">required</span></li>
+      </ul></div>
+
+      <div class="card"><h3><code>vacant_abandoned_property</code></h3><p class="dept">Code Enf. / Community Dev. · <span class="photo">photo required</span></p><ul>
+        <li><b>type</b> <span class="req">choice</span> — building / vacant lot</li>
+        <li><b>condition</b> <span class="req">choice</span> — open/unsecured / overgrown / fire-damaged / other</li>
+        <li><b>photo</b> <span class="photo">required</span></li>
+      </ul></div>
+
+      <div class="card"><h3><code>water_sewer</code></h3><p class="dept">Water Utility · <span class="div">Peoria → private utility</span></p><ul>
+        <li><b>problem</b> <span class="req">choice</span> — no water / low pressure / main break / sewer backup / odor / discoloration</li>
+        <li><span class="g">Peoria: route to "contact Illinois American Water", not a city dept</span></li>
+      </ul></div>
+
+      <div class="card"><h3><code>flooding_drainage</code></h3><p class="dept">Public Works / Engineering</p><ul>
+        <li><b>problem</b> <span class="req">choice</span> — standing water in street / clogged catch basin / property flooding</li>
+      </ul></div>
+
+      <div class="card"><h3><code>traffic_sign_signal</code></h3><p class="dept">Public Works</p><ul>
+        <li><b>type</b> <span class="req">choice</span> — signal out / signal malfunction / sign knocked down / sign missing-faded</li>
+      </ul></div>
+
+      <div class="card"><h3><code>snow_ice</code></h3><p class="dept">Public Works</p><ul>
+        <li><b>where</b> <span class="req">choice</span> — street not plowed / sidewalk / bike lane / intersection</li>
+      </ul></div>
+
+      <div class="card"><h3><code>noise_complaint</code></h3><p class="dept">Police</p><ul>
+        <li><b>source</b> <span class="req">choice</span> — residential / commercial / vehicle / construction / amplified event</li>
+        <li><b>timing</b> <span class="req">choice</span> — happening now / recurring</li>
+      </ul></div>
+
+      <div class="card"><h3><code>park_maintenance</code></h3><p class="dept">Parks &amp; Recreation</p><ul>
+        <li><b>park</b> <span class="req">text</span> — which park?</li>
+        <li><b>issue</b> <span class="req">choice</span> — equipment / restroom / lighting / landscaping / fountain</li>
+      </ul></div>
+
+      <div class="card"><h3><code>other_inquiry</code></h3><p class="dept">Clerk / general queue</p><ul>
+        <li><b>description</b> <span class="req">longtext</span> — base field carries it</li>
+        <li><b>suggested_department</b> <span class="g">text — optional; staff triage</span></li>
+      </ul></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead"><h2>4 · How routing changes</h2><span class="kicker">More defensible than today</span></div>
+    <div class="ba">
+      <div class="b before">
+        <h4>Today — <code>classify()</code></h4>
+        <ol>
+          <li>LLM emits <b>free-text <code>category</code></b> (decorative).</li>
+          <li>LLM also <b>picks the department</b> (allow-list clamped).</li>
+          <li>The model owns the routing decision.</li>
+        </ol>
+      </div>
+      <div class="b after">
+        <h4>Proposed</h4>
+        <ol>
+          <li>LLM discerns <b><code>category_key</code></b> from the discrete core (clamped + fail-safe to <code>other_inquiry</code>).</li>
+          <li><b>Code</b> looks up <code>department = MAP[city][category]</code> — deterministic, per-city.</li>
+          <li><b>Code</b> loads that category's form → runs existing <code>runIntakeTurn</code>.</li>
+          <li>Category fields can sharpen severity (<code>hazard=true</code> → high; <code>on_wires=true</code> → safety-critical).</li>
+        </ol>
+      </div>
+    </div>
+    <p class="lede" style="margin-top:1rem">Routing becomes a lookup keyed on a validated enum, not a free model choice — easier to trust, audit, and reassign.</p>
+  </section>
+
+  <section>
+    <div class="shead"><h2>5 · Known model gaps to decide</h2></div>
+    <ul class="maplist" style="font-size:0.92rem">
+      <li><b>No <code>multivaluelist</code> FieldType.</b> Two categories want "choose several" (<code>illegal_dumping.material</code>, <code>property_maintenance.issue</code>). Either add a <code>multichoice</code> type, or keep single-select ("pick the main one"). <b>Recommend single-select for v1</b> — no engine change.</li>
+      <li><b>Category disambiguation.</b> When a report is ambiguous ("junk and tall grass in the vacant lot"), does the agent ask, or pick highest-confidence and let staff reassign (already built)? <b>Recommend pick + reassign</b>, clarify only on low confidence.</li>
+      <li><b>Anonymous + required photo tension.</b> The photo-critical categories are exactly what anonymous users report. Until upload ships, <b>soft-require</b> (strongly ask, allow skip) rather than block.</li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="shead"><h2>6 · Sequencing</h2><span class="kicker">When we do build</span></div>
+    <ul class="maplist" style="font-size:0.92rem">
+      <li><b>1 · Photo upload + storage</b> — currently stubbed; blocks every hard-required photo. Highest-priority enabling work.</li>
+      <li><b>2 · Category-first conversation step</b> — the one new engine piece; everything else is reuse.</li>
+      <li><b>3 · Per-city department map</b> — a small data table; confirm the divergent rows + Peoria water special-case.</li>
+      <li><b>4 · Seed N category forms</b> into <code>nf_form_definitions</code> (extend <code>scripts/seed-engine.mjs</code>, today only <code>pothole_report</code>).</li>
+      <li><b>5 · Retire <code>/desk/intake</code></b> — <b>last</b>. It's the only bridge for anonymous voice reports today; don't remove it until the direct-route path lands.</li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="shead"><h2>7 · Open questions for Rajeev + Blake</h2></div>
+    <ol class="q">
+      <li><span class="qt">Granularity.</span> <span class="qd">Is ~22 the right core? Split any (street vs. alley pothole, like Chicago) or merge (<code>water_sewer</code> + <code>flooding_drainage</code>)?</span></li>
+      <li><span class="qt">Photo policy.</span> <span class="qd">Agree with the 8-category photo-critical cluster hard-requiring a photo once upload exists? Anything added or removed?</span></li>
+      <li><span class="qt">Department map.</span> <span class="qd">Confirm the divergent owners (rodents, dead animal, tall grass) and the Peoria water = private-utility route-out. Verify against each city's real routing if we can.</span></li>
+      <li><span class="qt">Auto-route vs. confirm.</span> <span class="qd">Plan is route-straight-to-department. Keep a light staff confirm for <code>safety_critical</code> only, or fully auto?</span></li>
+      <li><span class="qt">Catch-all.</span> <span class="qd">Keep <code>other_inquiry</code> landing in a general queue? (Both cities do — every dept has "Ask a Question.")</span></li>
+      <li><span class="qt">One city or both?</span> <span class="qd">Nail Peoria end-to-end first, then add Evanston's map — or model both from day one?</span></li>
+    </ol>
+  </section>
+
+  <footer>
+    <p><b>Sources · Peoria:</b> peoriagov.org (903 Peoria-Cares, 180 uReport, 423 Request-a-Service, 813 Common Code Violations, 173 Code Enforcement, 508 Streets-Sidewalks); csesoftware.com; ureport.peoriagov.org (params confirm two-level; bot-blocked to automated fetch).</p>
+    <p><b>Evanston:</b> evanstonil.qscend.com/311 — live form read verbatim 2026-07-17 (17 dept groups + request types + fields). cityofevanston.org 311 pages; data.cityofevanston.org.</p>
+    <p><b>Reference:</b> data.cityofchicago.org (110 live SR types); civicplus.help/seeclickfix (defaults by dept); wiki.open311.org GeoReport v2 + Service Definition Attributes; NYC / Boston 311 for volume.</p>
+    <p style="margin-top:0.8rem;color:var(--faint)">Full spec with exact field definitions: <code>docs/intake-taxonomy-proposal.md</code>. This step is research only — no code written.</p>
+  </footer>
+</div>
