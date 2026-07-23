@@ -15,6 +15,7 @@ import type { FieldValue, FormDefinition } from '../domain/types';
 import type { LLM } from '../ports';
 import { mergeDraft, missingRequired } from './conversation';
 import { parseLooseJSON } from './json';
+import { CATEGORIES, resolveCategory, departmentFor, type CategoryKey } from './taxonomy';
 
 /**
  * One LLM call → parsed JSON, with a single retry on malformed output. Models
@@ -37,10 +38,13 @@ export type Severity = 'safety_critical' | 'high' | 'medium' | 'low';
 export const SEVERITIES: Severity[] = ['safety_critical', 'high', 'medium', 'low'];
 
 export interface Classification {
-  /** Free-text category label, e.g. "Roads & Infrastructure". */
-  category: string;
+  /** Discrete taxonomy category key, e.g. "pothole". (see ./taxonomy) */
+  category: CategoryKey;
   severity: Severity;
-  /** MUST be one of the allowed departments — the composer routes on this. */
+  /**
+   * The routed department: the category's canonical owner, reconciled to a
+   * configured desk. The composer routes on this. (see ./taxonomy)
+   */
   department: string;
   /** One line of reasoning — surfaced to staff so the routing is defensible. */
   rationale: string;
@@ -124,10 +128,15 @@ export async function extractFields(
 
 // ── classify ─────────────────────────────────────────────────────────────────
 
-function classifySystemPrompt(city: string, departments: string[]): string {
-  return `You triage a resident's report to ${city}. Assign a category, a severity, and the ONE city department that owns the fix.
+function classifySystemPrompt(city: string): string {
+  const cats = CATEGORIES.map((c) => `- ${c.key} — ${c.label}`).join('\n');
+  return `You triage a resident's report to ${city}. Pick the ONE category that best fits, and a severity. You do NOT choose the department — the category decides the routing.
 
-Departments (choose exactly one, use the exact key): ${departments.join(', ')}
+Categories (choose exactly one — return the key on the left, verbatim):
+${cats}
+
+If nothing fits, use "other_inquiry".
+
 Severity (choose one): ${SEVERITIES.join(' | ')}
   - safety_critical: imminent danger to people (e.g. live wire, gas, deep hazard in a travel lane)
   - high: significant risk or fast-worsening damage
@@ -137,23 +146,30 @@ Severity (choose one): ${SEVERITIES.join(' | ')}
 OUTPUT RULES — CRITICAL: Output ONLY raw JSON. No markdown, no code fences, no text before or after. First character {, last character }.
 
 Schema:
-{ "category": "short label", "severity": "<one of the above>", "department": "<one department key>", "rationale": "one sentence" }`;
+{ "category": "<one category key>", "severity": "<one of the above>", "rationale": "one sentence" }`;
 }
 
 /**
- * Classify a report. The LLM proposes; this function CONSTRAINS: severity is
- * clamped to the 4-level scale and department to the allow-list (fail-safe: an
- * unrecognized department defaults to the first listed, never an invented one).
+ * Classify a report. The LLM PROPOSES a category + severity; this function
+ * CONSTRAINS both: severity is clamped to the 4-level scale, and the category is
+ * resolved to a canonical key (fail-safe: an unrecognized category becomes the
+ * catch-all, never an invented label). The department is DERIVED from the
+ * category via the taxonomy — the model never picks it directly.
+ *
+ * `opts.departments` (optional) is the set of desks that can actually act. When
+ * supplied and the category's canonical owner isn't among them, the report is
+ * routed to the first configured desk so a human receives it and can reassign
+ * (built), rather than opening a workflow no one can sign in to. Configure
+ * DESK_PASSCODES with the canonical department keys to route straight through.
  */
 export async function classify(
   llm: LLM,
   form: FormDefinition,
   transcript: string,
-  opts: { departments: string[] },
+  opts: { departments?: string[] } = {},
 ): Promise<Classification> {
-  if (opts.departments.length === 0) throw new Error('classify requires at least one department');
-  const p = await completeJson<Partial<Classification>>(llm, {
-    system: classifySystemPrompt(form.city, opts.departments),
+  const p = await completeJson<{ category?: string; severity?: string; rationale?: string }>(llm, {
+    system: classifySystemPrompt(form.city),
     user: `Resident's report (transcribed):\n"""${transcript}"""\n\nReturn the JSON.`,
     maxTokens: 300,
   });
@@ -161,12 +177,16 @@ export async function classify(
   const severity: Severity = SEVERITIES.includes(p.severity as Severity)
     ? (p.severity as Severity)
     : 'medium';
-  const department = opts.departments.includes(p.department ?? '')
-    ? (p.department as string)
-    : opts.departments[0];
+
+  const category = resolveCategory(String(p.category ?? ''));
+  const canonical = departmentFor(form.city, category);
+
+  const configured = opts.departments ?? [];
+  const department =
+    configured.length === 0 || configured.includes(canonical) ? canonical : configured[0];
 
   return {
-    category: String(p.category ?? 'General').trim() || 'General',
+    category,
     severity,
     department,
     rationale: String(p.rationale ?? '').trim(),

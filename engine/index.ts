@@ -56,5 +56,17 @@ export type { ChatMessage, ChatRole, IntakeTurn } from './intake/conversation';
 // Digestion pipeline (single voice drop → fill → classify → compose)
 export { digestDrop, extractFields, classify, SEVERITIES } from './intake/digest';
 export type { DigestResult, Classification, Severity } from './intake/digest';
+
+// Report taxonomy (discrete categories + per-city department map)
+export {
+  CATEGORIES,
+  CITY_DEPARTMENTS,
+  FALLBACK_CATEGORY,
+  TEMPLATE_CITY,
+  resolveCategory,
+  departmentFor,
+  normalizeCity,
+} from './intake/taxonomy';
+export type { CategoryKey, CategoryDef, DepartmentKey } from './intake/taxonomy';
 export { composeGraph } from './intake/compose';
 export type { ComposeOptions } from './intake/compose';

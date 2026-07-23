@@ -35,8 +35,8 @@ test('digestDrop: fills stated fields, leaves attachments, classifies within con
   const llm = new ScriptedLLM([
     // extract stage
     JSON.stringify({ extracted: { location: 'Main St & 5th Ave', hazard: 'yes' } }),
-    // classify stage
-    JSON.stringify({ category: 'Roads & Infrastructure', severity: 'high', department: 'public_works', rationale: 'Travel-lane hazard causing swerving.' }),
+    // classify stage — the model returns a category KEY; department is derived
+    JSON.stringify({ category: 'pothole', severity: 'high', rationale: 'Travel-lane hazard causing swerving.' }),
   ]);
 
   const result = await digestDrop(llm, potholeForm, transcript, { departments: DEPARTMENTS });
@@ -47,23 +47,47 @@ test('digestDrop: fills stated fields, leaves attachments, classifies within con
   assert.deepEqual(result.missing, ['photos'], 'the required photo is still missing');
 
   assert.ok(SEVERITIES.includes(result.classification.severity));
-  assert.equal(result.classification.department, 'public_works');
+  assert.equal(result.classification.category, 'pothole', 'category is the discrete key');
+  assert.equal(result.classification.department, 'public_works', 'pothole → public_works (Peoria map)');
   assert.equal(result.classification.severity, 'high');
 });
 
-test('classify clamps a bad severity and rejects an off-list department', async () => {
+test('classify clamps a bad severity and fails an unknown category to the catch-all', async () => {
   const llm = new ScriptedLLM([
-    JSON.stringify({ category: 'x', severity: 'catastrophic', department: 'ministry_of_magic', rationale: 'r' }),
+    JSON.stringify({ category: 'ministry_of_magic', severity: 'catastrophic', rationale: 'r' }),
   ]);
   const cls = await classify(llm, potholeForm, transcript, { departments: DEPARTMENTS });
   assert.equal(cls.severity, 'medium', 'unknown severity clamps to medium');
-  assert.equal(cls.department, 'public_works', 'off-list department falls back to the first allowed');
+  assert.equal(cls.category, 'other_inquiry', 'unrecognized category fails safe to the catch-all');
+});
+
+test('classify derives the department from the category, not the model', async () => {
+  // The model proposes a graffiti category (and nothing about routing); the
+  // taxonomy owns the department decision: Peoria routes graffiti to police.
+  const llm = new ScriptedLLM([
+    JSON.stringify({ category: 'graffiti', severity: 'low', rationale: 'tag on a wall' }),
+  ]);
+  const cls = await classify(llm, potholeForm, transcript, { departments: ['public_works', 'police', 'code_enforcement'] });
+  assert.equal(cls.category, 'graffiti');
+  assert.equal(cls.department, 'police', 'graffiti → police (Peoria map)');
+});
+
+test('classify routes to a real desk when the canonical owner has none configured', async () => {
+  // rodent_pest → code_enforcement in Peoria, but no code_enforcement desk is
+  // configured here, so it lands on the first configured desk for a human to
+  // reassign — never a dead-end workflow.
+  const llm = new ScriptedLLM([
+    JSON.stringify({ category: 'rodent_pest', severity: 'medium', rationale: 'rats in the alley' }),
+  ]);
+  const cls = await classify(llm, potholeForm, transcript, { departments: ['public_works', 'parks_rec'] });
+  assert.equal(cls.category, 'rodent_pest');
+  assert.equal(cls.department, 'public_works', 'unconfigured owner falls back to the first desk');
 });
 
 test('compose → compile: the composed graph is one the engine accepts', async () => {
   const llm = new ScriptedLLM([
     JSON.stringify({ extracted: { location: 'Main St & 5th Ave', hazard: true } }),
-    JSON.stringify({ category: 'Roads', severity: 'high', department: 'public_works', rationale: 'r' }),
+    JSON.stringify({ category: 'pothole', severity: 'high', rationale: 'r' }),
   ]);
   const result = await digestDrop(llm, potholeForm, transcript, { departments: DEPARTMENTS });
 
