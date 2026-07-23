@@ -13,6 +13,7 @@
     "db:setup": "node scripts/setup-db.mjs",
     "engine:db:setup": "node scripts/setup-engine-db.mjs",
     "engine:seed": "node scripts/seed-engine.mjs",
+    "taxonomy:seed": "node --import tsx scripts/seed-taxonomy-forms.ts",
     "engine:smoke": "node --import tsx scripts/smoke-engine.ts",
     "engine:smoke:graph": "node --import tsx scripts/smoke-engine-graph.ts",
     "demo:seed": "node --import tsx scripts/seed-demo.ts"

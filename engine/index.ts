@@ -57,6 +57,15 @@ export type { ChatMessage, ChatRole, IntakeTurn } from './intake/conversation';
 export { discernCategory } from './intake/triage';
 export type { TriageTurn } from './intake/triage';
 
+// Per-category form schemas (loaded once triage locks a category)
+export {
+  CATEGORY_FORMS,
+  formForCategory,
+  categoryFormKey,
+  allCategoryForms,
+  TEMPLATE_FORM_CITY,
+} from './intake/forms';
+
 // Digestion pipeline (single voice drop → fill → classify → compose)
 export { digestDrop, extractFields, classify, SEVERITIES } from './intake/digest';
 export type { DigestResult, Classification, Severity } from './intake/digest';
