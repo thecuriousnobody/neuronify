@@ -53,6 +53,10 @@ export type { TimingReport, TimingBucket, ApprovalTiming } from './timing/index'
 export { runIntakeTurn } from './intake/conversation';
 export type { ChatMessage, ChatRole, IntakeTurn } from './intake/conversation';
 
+// Category-first triage (discern the category before a form exists)
+export { discernCategory } from './intake/triage';
+export type { TriageTurn } from './intake/triage';
+
 // Digestion pipeline (single voice drop → fill → classify → compose)
 export { digestDrop, extractFields, classify, SEVERITIES } from './intake/digest';
 export type { DigestResult, Classification, Severity } from './intake/digest';
