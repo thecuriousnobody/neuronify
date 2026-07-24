@@ -37,6 +37,8 @@ export default function ReportChat() {
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [geo, setGeo] = useState<{ fieldKey: string; matched: string; lat: number; lon: number } | null>(null);
+  const [photos, setPhotos] = useState<Record<string, string>>({});
+  const [uploadingKey, setUploadingKey] = useState<string | null>(null);
 
   const threadRef = useRef<HTMLDivElement>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -77,6 +79,27 @@ export default function ReportChat() {
       setMessages(nextHistory);
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function onPickPhoto(fieldKey: string, file: File | null) {
+    if (!file) return;
+    setUploadingKey(fieldKey);
+    setError('');
+    try {
+      // client-upload token flow — file streams straight to Blob storage
+      const { upload } = await import('@vercel/blob/client');
+      const blob = await upload(file.name, file, {
+        access: 'public',
+        handleUploadUrl: '/api/v2/upload',
+      });
+      setPhotos((p) => ({ ...p, [fieldKey]: blob.url }));
+    } catch (e: any) {
+      setError(e?.message?.includes('not configured')
+        ? 'Photo storage isn’t turned on yet — you can finish without a photo for now.'
+        : `Photo upload failed: ${e?.message || 'try again'}`);
+    } finally {
+      setUploadingKey(null);
     }
   }
 
@@ -195,6 +218,19 @@ export default function ReportChat() {
               );
             })}
           </div>
+          {Object.keys(photos).length > 0 && (
+            <div style={{ margin: '1rem auto 0', maxWidth: 460, textAlign: 'left' }}>
+              {Object.values(photos).map((url, i) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={i}
+                  src={url}
+                  alt="report photo"
+                  style={{ maxWidth: '180px', borderRadius: 8, display: 'block', marginTop: 6 }}
+                />
+              ))}
+            </div>
+          )}
           <p className={styles.doneText} style={{ marginTop: '1rem', opacity: 0.75 }}>
             In the live flow this goes straight to {department ? pretty(department) : 'the owning department'}. (Submission
             is the next step to wire.)
@@ -290,7 +326,28 @@ export default function ReportChat() {
                 {f.label} {f.required && <span className={styles.req}>*</span>}
               </label>
               {f.type === 'attachment' ? (
-                <span className={styles.attachNote}>Photo upload coming soon — you can finish without it for now.</span>
+                <div>
+                  {photos[f.key] ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={photos[f.key]}
+                      alt="uploaded"
+                      style={{ maxWidth: '180px', borderRadius: 8, display: 'block', marginTop: 4 }}
+                    />
+                  ) : (
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      disabled={uploadingKey === f.key}
+                      onChange={(e) => onPickPhoto(f.key, e.target.files?.[0] ?? null)}
+                    />
+                  )}
+                  {uploadingKey === f.key && <span className={styles.attachNote}> Uploading…</span>}
+                  {!photos[f.key] && uploadingKey !== f.key && (
+                    <span className={styles.attachNote}> (optional — snap or attach a photo)</span>
+                  )}
+                </div>
               ) : f.type === 'boolean' ? (
                 <select
                   className={styles.fieldSelect}
