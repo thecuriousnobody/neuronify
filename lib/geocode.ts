@@ -36,9 +36,9 @@ function normalize(raw: string): string {
 export async function geocodeApprox(rawLocation: string, city: string): Promise<GeoMatch | null> {
   const cleaned = normalize(rawLocation);
   if (!cleaned) return null;
-  return process.env.GOOGLE_MAPS_API_KEY
-    ? geocodeGoogle(cleaned, city)
-    : geocodeCensus(cleaned, city);
+  const hasGoogle = !!process.env.GOOGLE_MAPS_API_KEY;
+  console.log(`[geocode] provider=${hasGoogle ? 'google' : 'census'} query="${cleaned}, ${city}"`);
+  return hasGoogle ? geocodeGoogle(cleaned, city) : geocodeCensus(cleaned, city);
 }
 
 // Google Geocoding — strong on intersections, landmarks, and loose phrasing.
@@ -57,7 +57,11 @@ async function geocodeGoogle(cleaned: string, city: string): Promise<GeoMatch | 
     clearTimeout(timer);
     if (!res.ok) return null;
     const data: any = await res.json();
-    if (data?.status !== 'OK') return null; // ZERO_RESULTS / OVER_QUERY_LIMIT / etc.
+    if (data?.status !== 'OK') {
+      // Surface WHY (REQUEST_DENIED = key/API/billing; ZERO_RESULTS = no match).
+      console.warn(`[geocode] google status=${data?.status} msg=${data?.error_message ?? ''}`);
+      return null;
+    }
     const m = data.results?.[0];
     const loc = m?.geometry?.location;
     if (!m?.formatted_address || typeof loc?.lat !== 'number' || typeof loc?.lng !== 'number') return null;
