@@ -83,15 +83,19 @@
 
 ## Results
 
-| TC | What | Pass/Fail | Notes |
-|----|------|-----------|-------|
-| TC1 | Vague → triage | | |
-| TC2 | Pothole → Public Works + size | | |
-| TC3 | Graffiti → Police | | |
-| TC4 | Tree → public/private question | | |
-| TC5 | Rodents → Code Enforcement | | |
-| TC6 | Water → route-out | | |
-| TC7 | Catch-all → Clerk | | |
-| TC8 | Completion → summary | | |
-| TC9 | Edit persists | | |
-| TC10 | Robustness | | |
+Claude's run, 2026-07 (server on :3000 with `AGENT_INTAKE_MODEL=llama-3.3-70b-versatile`):
+
+| TC | What | Result | Notes |
+|----|------|--------|-------|
+| TC1 | Vague → triage | ✅ Pass | "something is wrong outside my house" → clarifying question, no lock |
+| TC2 | Pothole → Public Works + size | ✅ Pass | locked pothole→public_works; captured size=large, hazard=true |
+| TC3 | Graffiti → Police | ✅ Pass | badge "Graffiti · routed to Police" |
+| TC4 | Tree → public/private | ✅ Pass (after fix) | first run mislabeled as sidewalk_damage (still →public_works); triage prompt tightened → now tree_issue |
+| TC5 | Rodents → Code Enforcement | ✅ Pass | the Peoria divergence routes correctly |
+| TC6 | Water → route-out | ✅ Pass (after fix) | **first run missed it** (flooding_drainage→public_works); prompt fix → now water_sewer→water_external; no-"flooding" variant also correct |
+| TC7 | Catch-all → Clerk | ✅ Pass | other_inquiry→clerk; no location demanded |
+| TC8 | Completion → summary | ✅ Pass | full street_light run → "Review & finish" → review form (incl. failure=fully out select) → summary "routed to Public Works" |
+| TC9 | Edit persists | ◑ Mechanism verified | review form is editable and feeds the summary via `finish()`; not explicitly exercised with an edit |
+| TC10 | Robustness | ✅ Pass | Send disabled on empty composer; rapid double-send → "Too fast" (rate limiter) |
+
+**Bug found & fixed during this run:** TC6 — a "water main break flooding the street" locked `flooding_drainage → Public Works`, missing the private-utility route-out. Fixed by tightening the triage prompt's water-vs-flooding and tree-vs-sidewalk boundaries (commit `6f304d6`); re-verified.
