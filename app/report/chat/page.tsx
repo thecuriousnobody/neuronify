@@ -34,10 +34,14 @@ export default function ReportChat() {
   const [phase, setPhase] = useState<'chat' | 'review' | 'done'>('chat');
   const [edited, setEdited] = useState<Record<string, string | boolean>>({});
   const [error, setError] = useState('');
-  const [listening, setListening] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [geo, setGeo] = useState<{ fieldKey: string; matched: string; lat: number; lon: number } | null>(null);
 
   const threadRef = useRef<HTMLDivElement>(null);
-  const recRef = useRef<any>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
 
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: 'smooth' });
@@ -67,6 +71,7 @@ export default function ReportChat() {
         if (Array.isArray(data.draft)) setDraft(data.draft);
         setReady(Boolean(data.readyForReview));
       }
+      if (data.geo) setGeo(data.geo);
     } catch (e: any) {
       setError(e.message);
       setMessages(nextHistory);
@@ -103,25 +108,54 @@ export default function ReportChat() {
     setPhase('done');
   }
 
-  function toggleMic() {
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) {
-      setError('Voice input isn’t supported in this browser — you can type instead.');
+  // Voice input via Deepgram (the same accurate transcription the old /report
+  // uses) instead of the browser's built-in speech API — record, then POST the
+  // audio to /api/v2/transcribe and drop the transcript into the composer.
+  async function toggleMic() {
+    if (recording) {
+      recorderRef.current?.stop();
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      setRecording(false);
       return;
     }
-    if (listening) {
-      recRef.current?.stop();
-      return;
+    setError('');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const rec = new MediaRecorder(stream);
+      chunksRef.current = [];
+      rec.ondataavailable = (e) => e.data.size > 0 && chunksRef.current.push(e.data);
+      rec.onstop = transcribe;
+      rec.start();
+      recorderRef.current = rec;
+      setRecording(true);
+    } catch {
+      setError('Couldn’t reach your microphone — you can type instead.');
     }
-    const rec = new SR();
-    rec.lang = 'en-US';
-    rec.interimResults = false;
-    rec.onresult = (e: any) => setInput((prev) => (prev ? prev + ' ' : '') + e.results[0][0].transcript);
-    rec.onend = () => setListening(false);
-    rec.onerror = () => setListening(false);
-    recRef.current = rec;
-    setListening(true);
-    rec.start();
+  }
+
+  async function transcribe() {
+    const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+    if (blob.size === 0) return;
+    setTranscribing(true);
+    try {
+      const res = await fetch('/api/v2/transcribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'audio/webm' },
+        body: blob,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data?.error || 'Transcription failed — you can type instead.');
+      } else {
+        const t = String(data?.transcript ?? '').trim();
+        if (t) setInput((prev) => (prev ? `${prev} ${t}` : t));
+      }
+    } catch {
+      setError('Network hiccup during transcription.');
+    } finally {
+      setTranscribing(false);
+    }
   }
 
   const routedBanner = category ? (
@@ -144,6 +178,11 @@ export default function ReportChat() {
             <strong>{form ? pretty(category ?? form.key) : 'Report'}</strong>
             {department ? <> · routed to <strong>{pretty(department)}</strong></> : null}
           </p>
+          {geo && (
+            <p className={styles.doneText} style={{ opacity: 0.85 }}>
+              📍 {geo.matched}
+            </p>
+          )}
           <div style={{ textAlign: 'left', margin: '1rem auto 0', maxWidth: 460 }}>
             {shown.map((f) => {
               const v = draft.find((d) => d.fieldKey === f.key)?.value;
@@ -172,6 +211,23 @@ export default function ReportChat() {
         {routedBanner}
       </div>
 
+      {geo && (
+        <div
+          style={{
+            margin: '0.4rem 0 0.2rem',
+            fontSize: '0.82rem',
+            opacity: 0.85,
+            display: 'flex',
+            gap: '0.4rem',
+            alignItems: 'baseline',
+          }}
+          title={`${geo.lat.toFixed(5)}, ${geo.lon.toFixed(5)}`}
+        >
+          <span>📍</span>
+          <span>Location found: <strong>{geo.matched}</strong></span>
+        </div>
+      )}
+
       {phase === 'chat' && (
         <>
           <div className={styles.thread} ref={threadRef}>
@@ -181,6 +237,7 @@ export default function ReportChat() {
               </div>
             ))}
             {busy && <div className={styles.thinking}>Listening…</div>}
+            {transcribing && <div className={styles.thinking}>Transcribing…</div>}
             {ready && !busy && (
               <div className={styles.reviewCard}>
                 <div className={styles.reviewHead}>I’ve got what I need.</div>
@@ -196,12 +253,12 @@ export default function ReportChat() {
 
           <div className={styles.composer}>
             <button
-              className={`${styles.iconBtn} ${listening ? styles.listening : ''}`}
+              className={`${styles.iconBtn} ${recording ? styles.listening : ''}`}
               onClick={toggleMic}
-              aria-label="Speak"
+              aria-label={recording ? 'Stop recording' : 'Speak'}
               type="button"
             >
-              🎙
+              {recording ? '■' : '🎙'}
             </button>
             <textarea
               className={styles.input}

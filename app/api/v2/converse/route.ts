@@ -19,6 +19,7 @@ import {
 } from '@/engine';
 import { rateLimit } from '@/lib/ratelimit';
 import { errorResponse } from '@/lib/engine/http';
+import { geocodeApprox } from '@/lib/geocode';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -87,6 +88,18 @@ export async function POST(req: Request) {
     // ── Phase 2 — category known: collect its fields. ──
     const form = formForCategory(locked);
     const turn = await runIntakeTurn(env.llm, form, history, draft, message);
+
+    // Resolve the location to a real address + GPS — but only when it just got
+    // filled or changed this turn (keeps geocoder calls off every message).
+    const locField = form.fields.find((f) => f.type === 'location');
+    const newLoc = locField ? turn.draft.find((v) => v.fieldKey === locField.key)?.value : null;
+    const priorLoc = locField ? draft.find((v) => v.fieldKey === locField.key)?.value : null;
+    let geo: { fieldKey: string; matched: string; lat: number; lon: number } | null = null;
+    if (locField && newLoc && newLoc !== priorLoc) {
+      const match = await geocodeApprox(String(newLoc), TEMPLATE_FORM_CITY);
+      if (match) geo = { fieldKey: locField.key, ...match };
+    }
+
     return Response.json({
       phase: 'collecting',
       reply: turn.reply,
@@ -96,6 +109,7 @@ export async function POST(req: Request) {
       draft: turn.draft,
       missing: turn.missing,
       readyForReview: turn.readyForReview,
+      geo,
     });
   } catch (err) {
     return errorResponse(err);
