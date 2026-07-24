@@ -33,5 +33,5 @@ export const outboxNotifier: Notifier = {
 /** Bridge the engine's LLM port to the existing multi-provider client. */
 export const aiLLM: LLM = {
   complete: ({ system, user, maxTokens }) =>
-    callLLM({ system, user, model: process.env.AGENT_INTAKE_MODEL || 'qwen/qwen3-32b', maxTokens }),
+    callLLM({ system, user, model: process.env.AGENT_INTAKE_MODEL || 'claude-haiku-4-5-20251001', maxTokens }),
 };

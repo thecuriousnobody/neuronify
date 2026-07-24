@@ -1,8 +1,8 @@
 // Provider-agnostic LLM layer.
-// Default: Groq (free, OpenAI-compatible). Flip AI_PROVIDER to use Claude
+// Default: Anthropic Claude (Haiku). Flip AI_PROVIDER to use Groq, OpenAI,
 // or a local Ollama without touching call sites.
 
-const PROVIDER = (process.env.AI_PROVIDER || 'groq').toLowerCase();
+const PROVIDER = (process.env.AI_PROVIDER || 'anthropic').toLowerCase();
 
 type LLMOpts = {
   system: string;
@@ -50,7 +50,7 @@ export const MODELS = {
     (PROVIDER === 'anthropic' ? 'claude-haiku-4-5-20251001' : 'qwen/qwen3-32b'),
   brief:
     process.env.AGENT_B_MODEL ||
-    (PROVIDER === 'anthropic' ? 'claude-sonnet-4-6' : 'qwen/qwen3-32b'),
+    (PROVIDER === 'anthropic' ? 'claude-haiku-4-5-20251001' : 'qwen/qwen3-32b'),
 };
 
 // Reasoning models (Qwen3, DeepSeek-R1, ...) emit <think> traces and burn huge
