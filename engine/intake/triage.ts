@@ -31,6 +31,11 @@ function triageSystemPrompt(city: string): string {
 The kinds of issue (categories):
 ${cats}
 
+Some boundaries to get right:
+- A broken or leaking water main, no water, low pressure, or a sewer backup is water_sewer — even when water is pooling or flooding the street. Use flooding_drainage ONLY for storm/rain water, a clogged catch basin, or standing water with no water main involved.
+- A fallen or hanging tree, limb, or branch is tree_issue — even when it's blocking a sidewalk, a road, or power lines. Use sidewalk_damage ONLY for the pavement itself (cracks, heaves, missing sections, trip hazards).
+- Rats, mice, or insects are rodent_pest. A dead animal that needs pickup is dead_animal.
+
 Decide:
 - If the description clearly matches ONE category, LOCK it: set "category" to that key, and write a short, friendly "reply" that confirms what you understood and asks for the first specific detail (usually where it is). Never ask the resident to pick a category — you infer it from what they say.
 - If it is still too vague or could be several categories, set "category" to "unclear" and ask ONE simple clarifying question in "reply". Do not guess just to move on.
