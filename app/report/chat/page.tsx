@@ -25,6 +25,26 @@ type Value = { fieldKey: string; value: string | number | boolean | null };
 const GREETING = 'Hi — I can help you report something to the city. In a sentence or two, what’s going on?';
 const pretty = (k: string) => k.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
+// Where a resident photo lands in the Blob store. /api/v2/upload will only sign
+// this shape, so keep the two in step: reports/<safe-name>.<image-ext>. The
+// store adds a random suffix, so collisions aren't our problem here.
+const EXT_BY_TYPE: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/heic': 'heic',
+  'image/heif': 'heif',
+};
+function blobPathname(file: File): string {
+  const ext = EXT_BY_TYPE[file.type] || file.name.split('.').pop()?.toLowerCase() || 'jpg';
+  const base =
+    file.name
+      .replace(/\.[^.]*$/, '')
+      .replace(/[^A-Za-z0-9_-]/g, '-')
+      .slice(0, 60) || 'photo';
+  return `reports/${base}.${ext}`;
+}
+
 export default function ReportChat() {
   const [messages, setMessages] = useState<Msg[]>([{ role: 'assistant', text: GREETING }]);
   const [category, setCategory] = useState<string | null>(null);
@@ -40,7 +60,11 @@ export default function ReportChat() {
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [geo, setGeo] = useState<{ fieldKey: string; matched: string; lat: number; lon: number } | null>(null);
+  // `photos` holds the stored Blob URL (what a submission will record);
+  // `photoPreviews` holds a local object URL, because the Blob store is private
+  // and its URLs need a signed request — we already have the file in hand.
   const [photos, setPhotos] = useState<Record<string, string>>({});
+  const [photoPreviews, setPhotoPreviews] = useState<Record<string, string>>({});
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [allCategories, setAllCategories] = useState<CategoryOption[] | null>(null);
   const [picking, setPicking] = useState(false);
@@ -136,25 +160,31 @@ export default function ReportChat() {
     setUploadingKey(fieldKey);
     setError('');
     try {
-      // client-upload token flow — file streams straight to Blob storage
-      const { upload } = await import('@vercel/blob/client');
-      const blob = await upload(file.name, file, {
-        access: 'public',
+      // presigned-URL flow — the file streams straight to Blob storage
+      const { uploadPresigned } = await import('@vercel/blob/client');
+      const blob = await uploadPresigned(blobPathname(file), file, {
+        access: 'private',
+        contentType: file.type || undefined,
         handleUploadUrl: '/api/v2/upload',
       });
       setPhotos((p) => ({ ...p, [fieldKey]: blob.url }));
+      setPhotoPreviews((p) => {
+        if (p[fieldKey]) URL.revokeObjectURL(p[fieldKey]);
+        return { ...p, [fieldKey]: URL.createObjectURL(file) };
+      });
     } catch (e: any) {
       // The Blob client masks our route's response with a generic "Failed to
-      // retrieve the client token", so ask the route directly what went wrong.
+      // retrieve the presigned URL", so ask the route directly whether photo
+      // storage is simply unconfigured (the one error it reports before it
+      // looks at the body at all).
       const msg = String(e?.message ?? '');
-      if (/client token/i.test(msg)) {
+      if (/presigned URL|client token/i.test(msg)) {
         const reason = await fetch('/api/v2/upload', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ type: 'blob.generate-client-token' }),
+          body: JSON.stringify({ type: 'blob.config-probe' }),
         })
-          .then((r) => r.json())
-          .then((d) => d?.error)
+          .then(async (r) => (r.status === 503 ? (await r.json())?.error : null))
           .catch(() => null);
         setError(reason || 'Photo upload isn’t available right now — you can finish without a photo.');
       } else {
@@ -280,9 +310,9 @@ export default function ReportChat() {
               );
             })}
           </div>
-          {Object.keys(photos).length > 0 && (
+          {Object.keys(photoPreviews).length > 0 && (
             <div style={{ margin: '1rem auto 0', maxWidth: 460, textAlign: 'left' }}>
-              {Object.values(photos).map((url, i) => (
+              {Object.values(photoPreviews).map((url, i) => (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   key={i}
@@ -459,10 +489,10 @@ export default function ReportChat() {
               </label>
               {f.type === 'attachment' ? (
                 <div>
-                  {photos[f.key] ? (
+                  {photoPreviews[f.key] ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={photos[f.key]}
+                      src={photoPreviews[f.key]}
                       alt="uploaded"
                       style={{ maxWidth: '180px', borderRadius: 8, display: 'block', marginTop: 4 }}
                     />
