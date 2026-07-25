@@ -11,7 +11,7 @@
 // Blake's auto-route-vs-confirm decision lands.
 
 import { useEffect, useRef, useState } from 'react';
-import styles from '../../intake/intake.module.css';
+import styles from './chat.module.css';
 
 type FieldType = 'text' | 'longtext' | 'number' | 'boolean' | 'choice' | 'location' | 'date' | 'attachment';
 type Field = { key: string; label: string; type: FieldType; required: boolean; choices?: string[]; prompt?: string };
@@ -334,6 +334,7 @@ export default function ReportChat() {
 
   return (
     <main className={styles.wrap}>
+      <div className={styles.glow} aria-hidden />
       <div className={styles.header}>
         <span className={styles.title}>Report an issue</span>
         {routedBanner}
