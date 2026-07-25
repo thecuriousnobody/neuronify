@@ -95,9 +95,22 @@ export default function ReportChat() {
       });
       setPhotos((p) => ({ ...p, [fieldKey]: blob.url }));
     } catch (e: any) {
-      setError(e?.message?.includes('not configured')
-        ? 'Photo storage isn’t turned on yet — you can finish without a photo for now.'
-        : `Photo upload failed: ${e?.message || 'try again'}`);
+      // The Blob client masks our route's response with a generic "Failed to
+      // retrieve the client token", so ask the route directly what went wrong.
+      const msg = String(e?.message ?? '');
+      if (/client token/i.test(msg)) {
+        const reason = await fetch('/api/v2/upload', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ type: 'blob.generate-client-token' }),
+        })
+          .then((r) => r.json())
+          .then((d) => d?.error)
+          .catch(() => null);
+        setError(reason || 'Photo upload isn’t available right now — you can finish without a photo.');
+      } else {
+        setError(`Photo upload failed: ${msg || 'please try again'}`);
+      }
     } finally {
       setUploadingKey(null);
     }
