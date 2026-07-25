@@ -36,16 +36,21 @@ function normalize(raw: string): string {
 export async function geocodeApprox(rawLocation: string, city: string): Promise<GeoMatch | null> {
   const cleaned = normalize(rawLocation);
   if (!cleaned) return null;
-  const hasGoogle = !!process.env.GOOGLE_MAPS_API_KEY;
-  console.log(`[geocode] provider=${hasGoogle ? 'google' : 'census'} query="${cleaned}, ${city}"`);
-  return hasGoogle ? geocodeGoogle(cleaned, city) : geocodeCensus(cleaned, city);
+  // The agent often already includes the city ("... , Peoria, IL"); don't append
+  // it twice — Google tolerates it, but the query stays cleaner this way.
+  const head = city.split(',')[0].trim().toLowerCase();
+  const anchored = head && cleaned.toLowerCase().includes(head) ? cleaned : `${cleaned}, ${city}`;
+  return process.env.GOOGLE_MAPS_API_KEY
+    ? geocodeGoogle(anchored)
+    : geocodeCensus(anchored);
 }
 
 // Google Geocoding — strong on intersections, landmarks, and loose phrasing.
-async function geocodeGoogle(cleaned: string, city: string): Promise<GeoMatch | null> {
+// Also typo-tolerant: "Fry & Knoxville" → "Knoxville Ave & E Frye Ave".
+async function geocodeGoogle(address: string): Promise<GeoMatch | null> {
   const key = process.env.GOOGLE_MAPS_API_KEY!;
   const url = new URL('https://maps.googleapis.com/maps/api/geocode/json');
-  url.searchParams.set('address', `${cleaned}, ${city}`);
+  url.searchParams.set('address', address);
   url.searchParams.set('key', key);
   // Anchor to US; the ", <city>" in the address carries the locality/state.
   url.searchParams.set('components', 'country:US');
@@ -58,8 +63,11 @@ async function geocodeGoogle(cleaned: string, city: string): Promise<GeoMatch | 
     if (!res.ok) return null;
     const data: any = await res.json();
     if (data?.status !== 'OK') {
-      // Surface WHY (REQUEST_DENIED = key/API/billing; ZERO_RESULTS = no match).
-      console.warn(`[geocode] google status=${data?.status} msg=${data?.error_message ?? ''}`);
+      // ZERO_RESULTS is normal; REQUEST_DENIED means the Geocoding API isn't
+      // enabled on the key's Cloud project — worth surfacing, never silent.
+      if (data?.status !== 'ZERO_RESULTS') {
+        console.warn(`[geocode] google status=${data?.status} msg=${data?.error_message ?? ''}`);
+      }
       return null;
     }
     const m = data.results?.[0];
@@ -72,9 +80,9 @@ async function geocodeGoogle(cleaned: string, city: string): Promise<GeoMatch | 
 }
 
 // Free US Census geocoder — address-oriented fallback (weak on intersections).
-async function geocodeCensus(cleaned: string, city: string): Promise<GeoMatch | null> {
+async function geocodeCensus(address: string): Promise<GeoMatch | null> {
   const url = new URL(CENSUS_URL);
-  url.searchParams.set('address', `${cleaned}, ${city}`);
+  url.searchParams.set('address', address);
   url.searchParams.set('benchmark', 'Public_AR_Current');
   url.searchParams.set('format', 'json');
 
