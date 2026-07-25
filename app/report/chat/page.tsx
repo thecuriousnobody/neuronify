@@ -16,7 +16,10 @@ import styles from '../../intake/intake.module.css';
 type FieldType = 'text' | 'longtext' | 'number' | 'boolean' | 'choice' | 'location' | 'date' | 'attachment';
 type Field = { key: string; label: string; type: FieldType; required: boolean; choices?: string[]; prompt?: string };
 type Form = { key: string; title: string; fields: Field[] };
-type Msg = { role: 'user' | 'assistant'; text: string };
+// 'detected' is a system card, not chat text: the moment the agent works out
+// what kind of report this is and where it routes.
+type Msg = { role: 'user' | 'assistant' | 'detected'; text: string; dept?: string };
+type CategoryOption = { key: string; label: string; department: string; form: Form };
 type Value = { fieldKey: string; value: string | number | boolean | null };
 
 const GREETING = 'Hi — I can help you report something to the city. In a sentence or two, what’s going on?';
@@ -39,6 +42,8 @@ export default function ReportChat() {
   const [geo, setGeo] = useState<{ fieldKey: string; matched: string; lat: number; lon: number } | null>(null);
   const [photos, setPhotos] = useState<Record<string, string>>({});
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
+  const [allCategories, setAllCategories] = useState<CategoryOption[] | null>(null);
+  const [picking, setPicking] = useState(false);
 
   const threadRef = useRef<HTMLDivElement>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -61,11 +66,25 @@ export default function ReportChat() {
       const res = await fetch('/api/v2/converse', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ message: text, history: messages, draft, category }),
+        // 'detected' cards are UI-only — never send them as conversation turns.
+        body: JSON.stringify({
+          message: text,
+          history: messages.filter((m) => m.role !== 'detected'),
+          draft,
+          category,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || 'Something went wrong.');
-      setMessages([...nextHistory, { role: 'assistant', text: data.reply }]);
+      // Surface the detection as its own visible moment the first time it lands.
+      const justDetected = data.category && !category;
+      setMessages([
+        ...nextHistory,
+        ...(justDetected
+          ? [{ role: 'detected' as const, text: data.category, dept: data.department }]
+          : []),
+        { role: 'assistant', text: data.reply },
+      ]);
       if (data.category) {
         setCategory(data.category);
         setDepartment(data.department ?? null);
@@ -80,6 +99,36 @@ export default function ReportChat() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function openPicker() {
+    setPicking(true);
+    if (allCategories) return;
+    try {
+      const res = await fetch('/api/v2/categories');
+      const data = await res.json();
+      setAllCategories(data.categories ?? []);
+    } catch {
+      setError('Could not load the list of report types.');
+      setPicking(false);
+    }
+  }
+
+  // The resident corrects a mis-read: switch to their category, load its form,
+  // and keep only the answers that still apply to the new set of questions.
+  function chooseCategory(opt: CategoryOption) {
+    setCategory(opt.key);
+    setDepartment(opt.department);
+    setForm(opt.form);
+    const keep = new Set(opt.form.fields.map((f) => f.key));
+    setDraft((d) => d.filter((v) => keep.has(v.fieldKey)));
+    setReady(false);
+    setPicking(false);
+    setMessages((m) => [
+      ...m,
+      { role: 'detected', text: opt.key, dept: opt.department },
+      { role: 'assistant', text: `Thanks — I've switched this to ${opt.label.toLowerCase()}. Let's carry on.` },
+    ]);
   }
 
   async function onPickPhoto(fieldKey: string, file: File | null) {
@@ -280,11 +329,81 @@ export default function ReportChat() {
       {phase === 'chat' && (
         <>
           <div className={styles.thread} ref={threadRef}>
-            {messages.map((m, i) => (
-              <div key={i} className={`${styles.msg} ${m.role === 'user' ? styles.user : styles.assistant}`}>
-                {m.text}
+            {messages.map((m, i) =>
+              m.role === 'detected' ? (
+                <div
+                  key={i}
+                  style={{
+                    alignSelf: 'center',
+                    margin: '0.6rem 0',
+                    padding: '0.7rem 1rem',
+                    borderRadius: 12,
+                    border: '1px solid rgba(56,189,248,.35)',
+                    background: 'rgba(56,189,248,.08)',
+                    textAlign: 'center',
+                    maxWidth: '90%',
+                  }}
+                >
+                  <div style={{ fontSize: '0.72rem', letterSpacing: '.14em', textTransform: 'uppercase', opacity: 0.7 }}>
+                    Identified
+                  </div>
+                  <div style={{ fontSize: '1.02rem', fontWeight: 600, margin: '0.25rem 0' }}>
+                    {pretty(m.text)}
+                  </div>
+                  <div style={{ fontSize: '0.86rem', opacity: 0.85 }}>
+                    → routed to <strong>{pretty(m.dept ?? '')}</strong>
+                  </div>
+                  {i === messages.map((x) => x.role).lastIndexOf('detected') && (
+                    <button
+                      type="button"
+                      onClick={openPicker}
+                      style={{
+                        marginTop: '0.5rem',
+                        background: 'none',
+                        border: 'none',
+                        color: 'inherit',
+                        opacity: 0.7,
+                        fontSize: '0.8rem',
+                        textDecoration: 'underline',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Not right? Change it
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div key={i} className={`${styles.msg} ${m.role === 'user' ? styles.user : styles.assistant}`}>
+                  {m.text}
+                </div>
+              ),
+            )}
+
+            {picking && (
+              <div className={styles.reviewCard}>
+                <div className={styles.reviewHead}>What kind of issue is it?</div>
+                <div className={styles.reviewSub}>Pick the one that fits best.</div>
+                {!allCategories && <div className={styles.thinking}>Loading…</div>}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.6rem' }}>
+                  {(allCategories ?? []).map((c) => (
+                    <button
+                      key={c.key}
+                      type="button"
+                      onClick={() => chooseCategory(c)}
+                      className={styles.secondary}
+                      style={{ fontSize: '0.82rem', padding: '0.4rem 0.7rem' }}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+                <div className={styles.actions}>
+                  <button className={styles.secondary} onClick={() => setPicking(false)}>
+                    Cancel
+                  </button>
+                </div>
               </div>
-            ))}
+            )}
             {busy && <div className={styles.thinking}>Listening…</div>}
             {transcribing && <div className={styles.thinking}>Transcribing…</div>}
             {ready && !busy && (
