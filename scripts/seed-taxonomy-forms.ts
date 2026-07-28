@@ -60,26 +60,37 @@ if (orphans.length) {
   process.exit(1);
 }
 
-let forms_ok = 0;
-let flows_ok = 0;
-try {
-  for (const flow of flows) {
-    await sql`insert into nf_workflow_definitions (key, version, doc) values (${flow.key}, ${flow.version}, ${JSON.stringify(flow)})
-              on conflict (key, version) do update set doc = excluded.doc`;
-    flows_ok++;
+// The package is CJS, so the writes live in main() rather than at top level —
+// same shape as scripts/seed-demo.ts and scripts/smoke-engine.ts.
+async function main(): Promise<void> {
+  let forms_ok = 0;
+  let flows_ok = 0;
+  try {
+    // Flows FIRST: a form whose workflow isn't there yet is the failure this
+    // whole script exists to prevent.
+    for (const flow of flows) {
+      await sql`insert into nf_workflow_definitions (key, version, doc) values (${flow.key}, ${flow.version}, ${JSON.stringify(flow)})
+                on conflict (key, version) do update set doc = excluded.doc`;
+      flows_ok++;
+    }
+    for (const form of forms) {
+      await sql`insert into nf_form_definitions (key, version, doc) values (${form.key}, ${form.version}, ${JSON.stringify(form)})
+                on conflict (key, version) do update set doc = excluded.doc`;
+      forms_ok++;
+    }
+    console.log(
+      `✓ Seeded ${flows_ok} department flows into nf_workflow_definitions and ${forms_ok} category forms into nf_form_definitions.`,
+    );
+  } catch (err) {
+    console.error(
+      `✗ Seed failed after ${flows_ok}/${flows.length} flows, ${forms_ok}/${forms.length} forms:`,
+      (err as Error).message,
+    );
+    process.exit(1);
   }
-  for (const form of forms) {
-    await sql`insert into nf_form_definitions (key, version, doc) values (${form.key}, ${form.version}, ${JSON.stringify(form)})
-              on conflict (key, version) do update set doc = excluded.doc`;
-    forms_ok++;
-  }
-  console.log(
-    `✓ Seeded ${flows_ok} department flows into nf_workflow_definitions and ${forms_ok} category forms into nf_form_definitions.`,
-  );
-} catch (err) {
-  console.error(
-    `✗ Seed failed after ${flows_ok}/${flows.length} flows, ${forms_ok}/${forms.length} forms:`,
-    (err as Error).message,
-  );
-  process.exit(1);
 }
+
+main().catch((err) => {
+  console.error('✗ Seed failed:', err);
+  process.exit(1);
+});
