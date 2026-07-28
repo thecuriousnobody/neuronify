@@ -78,8 +78,18 @@ export {
   TEMPLATE_CITY,
   resolveCategory,
   departmentFor,
+  departmentFlowKey,
   normalizeCity,
 } from './intake/taxonomy';
 export type { CategoryKey, CategoryDef, DepartmentKey } from './intake/taxonomy';
+
+// Per-department workflows (the flow a report runs is a property of its owner)
+export {
+  buildDepartmentFlow,
+  allDepartmentFlows,
+  allDepartments,
+  SAFETY_CRITICAL,
+} from './intake/flows';
+export type { FlowOptions } from './intake/flows';
 export { composeGraph } from './intake/compose';
 export type { ComposeOptions } from './intake/compose';

@@ -162,3 +162,12 @@ export function departmentFor(city: string, category: CategoryKey): DepartmentKe
   const map = CITY_DEPARTMENTS[normalizeCity(city)] ?? CITY_DEPARTMENTS[TEMPLATE_CITY];
   return map[category];
 }
+
+/**
+ * The workflow a department's reports run. Flows are keyed by DEPARTMENT, not
+ * category — see ./flows. It lives here rather than in ./flows so that ./forms
+ * can name its workflowKey without importing ./flows (which imports ./forms).
+ */
+export function departmentFlowKey(department: DepartmentKey): string {
+  return `${department}_flow`;
+}

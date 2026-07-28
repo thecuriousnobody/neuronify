@@ -13,7 +13,7 @@
 // data, an added/removed field or a reworded choice is a one-line edit here.
 
 import type { FormDefinition, FormField } from '../domain/types';
-import { CATEGORIES, type CategoryKey } from './taxonomy';
+import { CATEGORIES, departmentFor, departmentFlowKey, type CategoryKey } from './taxonomy';
 
 /** The template city these schemas are authored for. */
 export const TEMPLATE_FORM_CITY = 'Peoria, IL';
@@ -167,7 +167,10 @@ function buildForm(category: CategoryKey): FormDefinition {
     title: label,
     city: TEMPLATE_FORM_CITY,
     version: 1,
-    workflowKey: `${categoryFormKey(category)}_flow`,
+    // Flows are keyed by DEPARTMENT, not category: the flow a report runs is a
+    // property of who owns it, and a step's approver is baked into the
+    // definition, so one flow can't serve two departments. See ./flows.
+    workflowKey: departmentFlowKey(departmentFor(TEMPLATE_FORM_CITY, category)),
     fields,
   };
 }
