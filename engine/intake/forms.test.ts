@@ -7,14 +7,24 @@ import assert from 'node:assert/strict';
 import { CATEGORIES, type CategoryKey } from './taxonomy';
 import { CATEGORY_FORMS, formForCategory, categoryFormKey, allCategoryForms } from './forms';
 
-test('every category has a form, keyed <category>_report', () => {
+test('every category has a form, keyed intake_<category>', () => {
   for (const c of CATEGORIES) {
     const form = CATEGORY_FORMS[c.key];
     assert.ok(form, `no form for ${c.key}`);
     assert.equal(form.key, categoryFormKey(c.key));
-    assert.equal(form.key, `${c.key}_report`);
+    assert.equal(form.key, `intake_${c.key}`);
   }
   assert.equal(allCategoryForms().length, CATEGORIES.length);
+});
+
+// v1's hand-seeded forms live in the same table. A taxonomy form that reused
+// one of their keys would overwrite it on seed — which is exactly what
+// `pothole_report` did once. Keep the namespaces disjoint.
+test('no taxonomy form collides with a v1 form key', () => {
+  const v1Keys = new Set(['pothole_report', 'pothole_report_smoke']);
+  for (const form of allCategoryForms()) {
+    assert.ok(!v1Keys.has(form.key), `taxonomy form ${form.key} collides with a v1 form`);
+  }
 });
 
 test('every form has a required description; all but the catch-all require a location', () => {

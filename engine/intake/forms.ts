@@ -33,9 +33,17 @@ const PHOTO_REQUIRED = new Set<CategoryKey>([
 /** Categories where a photo makes no sense (no attachment field at all). */
 const NO_PHOTO = new Set<CategoryKey>(['noise_complaint', 'other_inquiry']);
 
-/** The stable form key for a category, e.g. "pothole" → "pothole_report". */
+/**
+ * The stable form key for a category, e.g. "pothole" → "intake_pothole".
+ *
+ * The `intake_` prefix keeps these in their OWN namespace. They used to be
+ * `<category>_report`, which collided with v1's hand-seeded `pothole_report` —
+ * seeding the taxonomy silently overwrote that form with a different shape and
+ * a different workflow, changing the still-live v1 path. The two generations
+ * share a database; they must not share keys.
+ */
 export function categoryFormKey(category: CategoryKey): string {
-  return `${category}_report`;
+  return `intake_${category}`;
 }
 
 // Category-specific fields (beyond the shared base). Choice values are the
