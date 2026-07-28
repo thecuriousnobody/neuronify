@@ -109,6 +109,12 @@ export interface FieldValue {
   value: FieldValuePrimitive;
   /** Ids of attachments satisfying this field, if any. */
   attachmentIds?: string[];
+  /**
+   * For 'location' fields: the geocoder's resolution of `value`. The crew needs
+   * coordinates to find the thing; `matched` is the address the geocoder
+   * actually agreed on, which is not always what the resident typed.
+   */
+  geo?: { lat: number; lon: number; matched: string };
 }
 
 /**

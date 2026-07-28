@@ -5,10 +5,13 @@
 // shows a complete, routed report. Drives /api/v2/converse. No login.
 //
 // NOTE: this is the preview of the new /report experience, mounted at
-// /report/chat so the existing /report stays intact until this is proven. The
-// final step summarizes the complete report + where it routes; actual
-// persistence (route-direct submit) is wired once the forms are seeded and
-// Blake's auto-route-vs-confirm decision lands.
+// /report/chat so the existing /report stays intact until this is proven.
+//
+// Finishing FILES the report: POST /api/v2/submit-anon persists it and opens
+// the owning department's workflow, route-direct — no staff confirm gate. The
+// resident gets a reference number back. Whether safety-critical categories
+// get a clerk step first is a server-side flag (engine/intake/flows.ts),
+// pending Blake's decision D; nothing here changes either way.
 
 import { useEffect, useRef, useState } from 'react';
 import styles from './chat.module.css';
@@ -20,7 +23,14 @@ type Form = { key: string; title: string; fields: Field[] };
 // what kind of report this is and where it routes.
 type Msg = { role: 'user' | 'assistant' | 'detected'; text: string; dept?: string };
 type CategoryOption = { key: string; label: string; department: string; form: Form };
-type Value = { fieldKey: string; value: string | number | boolean | null };
+type Value = {
+  fieldKey: string;
+  value: string | number | boolean | null;
+  /** Blob URLs for an attachment field. */
+  attachmentIds?: string[];
+  /** Geocoder resolution for a location field. */
+  geo?: { lat: number; lon: number; matched: string };
+};
 
 const GREETING = 'Hi — I can help you report something to the city. In a sentence or two, what’s going on?';
 const pretty = (k: string) => k.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
@@ -68,6 +78,9 @@ export default function ReportChat() {
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [allCategories, setAllCategories] = useState<CategoryOption[] | null>(null);
   const [picking, setPicking] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  // The filed report's id — the resident's handle on it from here on.
+  const [tracking, setTracking] = useState('');
 
   const threadRef = useRef<HTMLDivElement>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -207,20 +220,56 @@ export default function ReportChat() {
     setPhase('review');
   }
 
-  function finish() {
-    // No persistence yet (see file header). Capture the reviewed values so the
-    // summary reflects any edits, then show the complete, routed report.
-    const values: Value[] = (form?.fields ?? [])
-      .filter((f) => f.type !== 'attachment')
-      .map((f) => {
-        const raw = edited[f.key];
-        let value: string | number | boolean | null = raw ?? null;
-        if (f.type === 'boolean') value = raw === true;
-        else if (f.type === 'number' && raw != null && raw !== '') value = Number(raw);
-        return { fieldKey: f.key, value };
+  async function finish() {
+    if (submitting) return;
+
+    // Mirror the server's required-attachment rule so the resident sees the
+    // problem here rather than after a round trip. The server re-checks — this
+    // is a courtesy, not the enforcement.
+    const needsPhoto = (form?.fields ?? []).filter(
+      (f) => f.type === 'attachment' && f.required && !photos[f.key],
+    );
+    if (needsPhoto.length) {
+      setError('This kind of report needs a photo before it can be filed — add one above.');
+      return;
+    }
+
+    const values: Value[] = (form?.fields ?? []).map((f) => {
+      const raw = edited[f.key];
+      let value: string | number | boolean | null = raw ?? null;
+      if (f.type === 'boolean') value = raw === true;
+      else if (f.type === 'number' && raw != null && raw !== '') value = Number(raw);
+
+      const out: Value = { fieldKey: f.key, value };
+      if (f.type === 'attachment') {
+        // The stored Blob URL is the attachment; the field itself has no value.
+        out.value = null;
+        if (photos[f.key]) out.attachmentIds = [photos[f.key]];
+      }
+      if (f.type === 'location' && geo?.fieldKey === f.key) {
+        out.geo = { lat: geo.lat, lon: geo.lon, matched: geo.matched };
+      }
+      return out;
+    });
+
+    setSubmitting(true);
+    setError('');
+    try {
+      const res = await fetch('/api/v2/submit-anon', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ category, values, source: 'voice' }),
       });
-    setDraft(values);
-    setPhase('done');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Could not file your report — please try again.');
+      setDraft(values);
+      setTracking(String(data.submissionId ?? ''));
+      setPhase('done');
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   // Voice input via Deepgram (the same accurate transcription the old /report
@@ -324,9 +373,13 @@ export default function ReportChat() {
             </div>
           )}
           <p className={styles.doneText} style={{ marginTop: '1rem', opacity: 0.75 }}>
-            In the live flow this goes straight to {department ? pretty(department) : 'the owning department'}. (Submission
-            is the next step to wire.)
+            This has gone straight to {department ? pretty(department) : 'the owning department'} — no desk in between.
           </p>
+          {tracking && (
+            <p className={styles.doneText} style={{ marginTop: '0.5rem' }}>
+              Your reference number is <strong>{tracking}</strong> — keep it to check on this report.
+            </p>
+          )}
         </div>
       </main>
     );
@@ -508,7 +561,11 @@ export default function ReportChat() {
                   )}
                   {uploadingKey === f.key && <span className={styles.attachNote}> Uploading…</span>}
                   {!photos[f.key] && uploadingKey !== f.key && (
-                    <span className={styles.attachNote}> (optional — snap or attach a photo)</span>
+                    <span className={styles.attachNote}>
+                      {f.required
+                        ? ' (required for this kind of report — snap or attach a photo)'
+                        : ' (optional — snap or attach a photo)'}
+                    </span>
                   )}
                 </div>
               ) : f.type === 'boolean' ? (
@@ -533,6 +590,15 @@ export default function ReportChat() {
                     </option>
                   ))}
                 </select>
+              ) : f.type === 'longtext' ? (
+                // A description runs to several sentences — a one-line input
+                // hides its own content from the person checking it.
+                <textarea
+                  className={styles.fieldInput}
+                  rows={4}
+                  value={(edited[f.key] as string) ?? ''}
+                  onChange={(e) => setEdited({ ...edited, [f.key]: e.target.value })}
+                />
               ) : (
                 <input
                   className={styles.fieldInput}
@@ -544,11 +610,15 @@ export default function ReportChat() {
           ))}
           {error && <div className={styles.error}>{error}</div>}
           <div className={styles.actions}>
-            <button className={styles.secondary} onClick={() => setPhase('chat')} disabled={busy}>
+            <button
+              className={styles.secondary}
+              onClick={() => setPhase('chat')}
+              disabled={busy || submitting}
+            >
               Back
             </button>
-            <button className={styles.primary} onClick={finish} disabled={busy}>
-              Finish
+            <button className={styles.primary} onClick={finish} disabled={busy || submitting}>
+              {submitting ? 'Filing your report…' : 'Finish'}
             </button>
           </div>
         </div>

@@ -1,0 +1,143 @@
+// Anonymous structured submit — the route-direct end of the smart-intake flow.
+//
+// This is the moment the Record of Truth begins for a resident report, with NO
+// sign-in and NO staff confirm gate: the conversation (/api/v2/converse) has
+// already vetted the report against its category's schema, so it goes straight
+// into the owning department's queue.
+//
+// Why not the existing routes:
+//   /api/v2/submit  — sign-in gated (beta), and takes a formKey the resident
+//                     has no way to know.
+//   /api/v2/report  — anonymous, but transcript-only: it parks a PENDING intake
+//                     for a staffer to digest, and drops every structured field
+//                     the conversation just worked to collect.
+//
+// The client sends a CATEGORY, not a formKey — the taxonomy owns the mapping
+// from category to form to owning department, so a client can't route its own
+// report by naming a form. Required fields are re-validated here, including
+// attachments: the photo-critical categories mean it.
+
+import { engineEnv } from '@/lib/engine';
+import {
+  submitForm,
+  formForCategory,
+  resolveCategory,
+  departmentFor,
+  TEMPLATE_FORM_CITY,
+  type FieldValue,
+} from '@/engine';
+import { rateLimit } from '@/lib/ratelimit';
+import { resolveCity } from '@/lib/cities';
+import { errorResponse } from '@/lib/engine/http';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+/** Free-form text can't be unbounded — this is an anonymous, public endpoint. */
+const MAX_TEXT = 4000;
+const MAX_VALUES = 40;
+/** Only our own Blob store — never let a submission cite an arbitrary URL. */
+const BLOB_HOST_RE = /^https:\/\/[a-z0-9-]+\.public\.blob\.vercel-storage\.com\//i;
+const BLOB_PRIVATE_RE = /^https:\/\/[a-z0-9-]+\.blob\.vercel-storage\.com\//i;
+
+function isOwnBlobUrl(url: string): boolean {
+  return BLOB_HOST_RE.test(url) || BLOB_PRIVATE_RE.test(url);
+}
+
+export async function POST(req: Request) {
+  const ip =
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    req.headers.get('x-real-ip') ||
+    'unknown';
+  const limit = rateLimit(ip);
+  if (!limit.ok) return Response.json({ error: limit.reason }, { status: 429 });
+
+  let body: any;
+  try {
+    body = await req.json();
+  } catch {
+    return Response.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+
+  // The taxonomy resolves the category — a bad/unknown key fails closed onto
+  // other_inquiry rather than letting the caller pick an arbitrary form.
+  const rawCategory = String(body?.category ?? '').trim();
+  if (!rawCategory) return Response.json({ error: 'Missing category.' }, { status: 400 });
+  const category = resolveCategory(rawCategory);
+  const form = formForCategory(category);
+
+  const source = body?.source === 'text' ? 'text' : 'voice';
+  const rawValues = Array.isArray(body?.values) ? body.values.slice(0, MAX_VALUES) : [];
+
+  const known = new Map(form.fields.map((f) => [f.key, f]));
+  const values: FieldValue[] = [];
+  for (const v of rawValues) {
+    if (!v || typeof v.fieldKey !== 'string') continue;
+    const field = known.get(v.fieldKey);
+    if (!field) continue; // ignore anything not on this category's form
+
+    let value = v.value ?? null;
+    if (typeof value === 'string') {
+      if (value.length > MAX_TEXT)
+        return Response.json(
+          { error: `“${field.label}” is too long — keep it under ${MAX_TEXT} characters.` },
+          { status: 400 },
+        );
+      value = value.trim();
+    }
+
+    const out: FieldValue = { fieldKey: field.key, value };
+
+    // Attachments arrive as Blob URLs the client already uploaded via
+    // /api/v2/upload. Anything not from our own store is dropped, not stored.
+    if (field.type === 'attachment') {
+      const urls = (Array.isArray(v.attachmentIds) ? v.attachmentIds : [])
+        .filter((u: any) => typeof u === 'string' && isOwnBlobUrl(u))
+        .slice(0, 5);
+      if (urls.length) out.attachmentIds = urls;
+      out.value = null; // the URL lives in attachmentIds, not the value
+    }
+
+    if (field.type === 'location' && v.geo && typeof v.geo === 'object') {
+      const lat = Number(v.geo.lat);
+      const lon = Number(v.geo.lon);
+      const matched = String(v.geo.matched ?? '').slice(0, 300);
+      if (Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180) {
+        out.geo = { lat, lon, matched };
+      }
+    }
+
+    values.push(out);
+  }
+
+  // Re-validate server-side — never trust the client's sense of "ready".
+  const filled = new Set(
+    values.filter((v) => v.value !== '' && v.value != null).map((v) => v.fieldKey),
+  );
+  const withAttachment = new Set(
+    values.filter((v) => (v.attachmentIds?.length ?? 0) > 0).map((v) => v.fieldKey),
+  );
+  const missing = form.fields
+    .filter((f) =>
+      f.required && (f.type === 'attachment' ? !withAttachment.has(f.key) : !filled.has(f.key)),
+    )
+    .map((f) => f.label);
+  if (missing.length) {
+    return Response.json({ error: `Still missing: ${missing.join(', ')}` }, { status: 400 });
+  }
+
+  const city = resolveCity(body?.city ?? TEMPLATE_FORM_CITY);
+  const department = departmentFor(city.db, category);
+
+  try {
+    const result = await submitForm(engineEnv(), {
+      formKey: form.key,
+      city: city.db,
+      source,
+      values,
+    });
+    return Response.json({ ...result, category, department });
+  } catch (err) {
+    return errorResponse(err);
+  }
+}
