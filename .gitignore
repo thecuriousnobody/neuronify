@@ -28,3 +28,8 @@ next-env.d.ts
 
 # typescript incremental build cache
 tsconfig.tsbuildinfo
+
+# Vishnu soft-signal brief — personal deliverable, not part of Neuronify
+docs/soft-signal-brief.html
+docs/soft-signal-brief-print.html
+docs/Neuronify-Soft-Signal-Brief.pdf

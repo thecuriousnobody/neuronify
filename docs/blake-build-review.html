@@ -1,0 +1,409 @@
+<title>Neuronify · Blake's Feedback — Build Review</title>
+<style>
+  :root {
+    --bg: #F4F6F9;
+    --panel: #ffffff;
+    --panel-2: #f7f9fb;
+    --text: #14202e;
+    --muted: #566677;
+    --faint: #8695a6;
+    --line: #e1e7ee;
+    --line-strong: #cfd8e2;
+    --accent: #2563eb;
+    --accent-ink: #1d4ed8;
+    --ok: #157347;      --ok-bg: #e5f3ea;   --ok-line: #bfe0cb;
+    --partial: #a4620f; --partial-bg: #fbeeda; --partial-line: #eccf9c;
+    --road: #566677;    --road-bg: #eaeef3;  --road-line: #d3dbe4;
+
+    --serif: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+    --sans: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0F1822; --panel: #15222e; --panel-2: #12202b;
+      --text: #e8edf2; --muted: #93a6b8; --faint: #6c8093;
+      --line: #22323f; --line-strong: #2c3f4d;
+      --accent: #7cc0ff; --accent-ink: #9ed3ff;
+      --ok: #6fd79b;      --ok-bg: #113123;   --ok-line: #1f5034;
+      --partial: #e6b264; --partial-bg: #2b2010; --partial-line: #4a381a;
+      --road: #93a6b8;    --road-bg: #1b2833;  --road-line: #2c3f4d;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F4F6F9; --panel: #ffffff; --panel-2: #f7f9fb;
+    --text: #14202e; --muted: #566677; --faint: #8695a6;
+    --line: #e1e7ee; --line-strong: #cfd8e2;
+    --accent: #2563eb; --accent-ink: #1d4ed8;
+    --ok: #157347; --ok-bg: #e5f3ea; --ok-line: #bfe0cb;
+    --partial: #a4620f; --partial-bg: #fbeeda; --partial-line: #eccf9c;
+    --road: #566677; --road-bg: #eaeef3; --road-line: #d3dbe4;
+  }
+  :root[data-theme="dark"] {
+    --bg: #0F1822; --panel: #15222e; --panel-2: #12202b;
+    --text: #e8edf2; --muted: #93a6b8; --faint: #6c8093;
+    --line: #22323f; --line-strong: #2c3f4d;
+    --accent: #7cc0ff; --accent-ink: #9ed3ff;
+    --ok: #6fd79b; --ok-bg: #113123; --ok-line: #1f5034;
+    --partial: #e6b264; --partial-bg: #2b2010; --partial-line: #4a381a;
+    --road: #93a6b8; --road-bg: #1b2833; --road-line: #2c3f4d;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 900px; margin-inline: auto; padding: clamp(1.25rem, 4vw, 3rem) 1.25rem 4rem; }
+
+  a { color: var(--accent-ink); text-underline-offset: 2px; }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+  code { font-family: var(--mono); font-size: 0.86em; background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px; padding: 0.1em 0.4em; }
+
+  /* header */
+  header.top { border-bottom: 1px solid var(--line); padding-bottom: 1.6rem; margin-bottom: 1.8rem; }
+  .eyebrow { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent-ink); margin: 0 0 0.7rem; }
+  h1 { font-family: var(--serif); font-weight: 700; font-size: clamp(1.8rem, 4vw, 2.5rem); line-height: 1.1; letter-spacing: -0.01em; margin: 0 0 0.6rem; text-wrap: balance; }
+  .sub { color: var(--muted); font-size: 1.02rem; margin: 0; max-width: 62ch; }
+  .metaline { margin-top: 1rem; font-size: 0.82rem; color: var(--faint); display: flex; flex-wrap: wrap; gap: 0.4rem 1.1rem; }
+  .metaline b { color: var(--muted); font-weight: 600; }
+  .metaline .live { color: var(--ok); font-weight: 700; }
+
+  /* summary tiles */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0.75rem; margin-bottom: 1.8rem; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 0.9rem 1rem; }
+  .tile .n { font-size: 1.9rem; font-weight: 750; line-height: 1; font-variant-numeric: tabular-nums; }
+  .tile .l { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-top: 0.35rem; }
+  .tile.ok .n { color: var(--ok); }
+  .tile.partial .n { color: var(--partial); }
+  .tile.road .n { color: var(--road); }
+
+  /* test callout */
+  .callout { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 10px; padding: 1.1rem 1.2rem; margin-bottom: 2.2rem; }
+  .callout h2 { font-size: 0.95rem; margin: 0 0 0.6rem; letter-spacing: 0.01em; }
+  .callout p { margin: 0 0 0.6rem; color: var(--muted); font-size: 0.92rem; }
+  .callout ol { margin: 0.4rem 0 0; padding-left: 1.15rem; color: var(--text); font-size: 0.92rem; }
+  .callout li { margin-bottom: 0.3rem; }
+  .callout li b { color: var(--text); }
+  .warn { color: var(--partial); font-weight: 600; }
+
+  /* sections */
+  section { margin-bottom: 2.2rem; }
+  .shead { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; border-bottom: 2px solid var(--line-strong); padding-bottom: 0.5rem; margin-bottom: 0.2rem; }
+  .shead h2 { font-size: 1.28rem; margin: 0; letter-spacing: -0.01em; }
+  .shead .note { font-size: 0.8rem; color: var(--faint); text-align: right; }
+
+  /* item rows */
+  .item { display: grid; grid-template-columns: 7.5rem 1fr; gap: 0.4rem 1.1rem; padding: 1rem 0.2rem; border-bottom: 1px solid var(--line); align-items: start; }
+  .item:last-child { border-bottom: 0; }
+  .pill { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.02em; padding: 0.2rem 0.55rem; border-radius: 999px; border: 1px solid; white-space: nowrap; width: max-content; }
+  .pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; }
+  .pill.ok { color: var(--ok); background: var(--ok-bg); border-color: var(--ok-line); }
+  .pill.ok::before { background: var(--ok); }
+  .pill.partial { color: var(--partial); background: var(--partial-bg); border-color: var(--partial-line); }
+  .pill.partial::before { background: var(--partial); }
+  .pill.road { color: var(--road); background: var(--road-bg); border-color: var(--road-line); }
+  .pill.road::before { background: var(--road); }
+
+  .body .ask { font-weight: 650; margin: 0 0 0.2rem; }
+  .body .built { color: var(--muted); font-size: 0.92rem; margin: 0; }
+  .body .built .b { color: var(--text); font-weight: 600; }
+  .where { margin-top: 0.45rem; font-family: var(--mono); font-size: 0.76rem; color: var(--faint); }
+  .where b { color: var(--accent-ink); font-weight: 600; }
+
+  /* roadmap list */
+  .roadmap { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 0.4rem 1.2rem; }
+  .roadmap li { padding: 0.7rem 0; border-bottom: 1px solid var(--line); list-style: none; }
+  .roadmap ul { margin: 0; padding: 0; }
+  .roadmap li:last-child { border-bottom: 0; }
+  .roadmap .t { font-weight: 650; }
+  .roadmap .d { color: var(--muted); font-size: 0.9rem; }
+
+  /* decision note (captured live during review) */
+  .decision { background: var(--partial-bg); border: 1px solid var(--partial-line); border-left: 3px solid var(--partial); border-radius: 10px; padding: 0.85rem 1.05rem; margin: 0.7rem 0 0.3rem; }
+  .decision .dh { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--partial); margin: 0 0 0.35rem; }
+  .decision p.dt { margin: 0; font-size: 0.9rem; color: var(--text); }
+  .decision p.dt b { font-weight: 700; }
+
+  footer { margin-top: 2.5rem; padding-top: 1.4rem; border-top: 1px solid var(--line); color: var(--faint); font-size: 0.82rem; }
+
+  @media (max-width: 560px) {
+    .item { grid-template-columns: 1fr; }
+  }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <p class="eyebrow">Neuronify · Track One — Municipal Workflow</p>
+    <h1>Blake's Feedback → What We Built</h1>
+    <p class="sub">A review guide for walking the whole thing. Blake's notes on the left, exactly what shipped on the right, and where to check each one on the live site.</p>
+    <div class="metaline">
+      <span class="live">● Live &amp; verified on the server</span>
+      <span><b>URL</b> neuronify.ai/desk</span>
+      <span><b>Sign in</b> <code>public_works-2026</code> (scheme: dept + <code>-2026</code>)</span>
+    </div>
+  </header>
+
+  <div class="tiles">
+    <div class="tile ok"><div class="n">13</div><div class="l">Shipped</div></div>
+    <div class="tile partial"><div class="n">2</div><div class="l">Partial</div></div>
+    <div class="tile road"><div class="n">3</div><div class="l">Roadmap</div></div>
+    <div class="tile"><div class="n">2</div><div class="l">Deferred by Blake</div></div>
+  </div>
+
+  <div class="callout">
+    <h2>How to test the whole thing</h2>
+    <p>Go to <b>neuronify.ai/desk</b> and sign in with <code>public_works-2026</code> (it owns open cases). Then:</p>
+    <ol>
+      <li><b>All cases tab</b> — try the filters, <b>Export CSV</b>, and click a row to open the right-side detail.</li>
+      <li><b>Open a case → Form tab</b> — Approve with a "what work was completed?" note; it stays on the case and the step turns green.</li>
+      <li><b>Workflow tab</b> — reassign to another department with a reason; it leaves your queue and lands in theirs.</li>
+      <li><b>Chat-log tab</b> — file a fresh report at <code>/report</code>, confirm it at <code>/desk/intake</code>, then the resident's original words appear here.</li>
+    </ol>
+    <p style="margin-top:0.7rem"><span class="warn">⚠ Live shares one database with local</span> — everything you do is real data, so use throwaway cases for anything that writes.</p>
+  </div>
+
+  <!-- ── REPORTING ── -->
+  <section>
+    <div class="shead">
+      <h2>1 · Reporting</h2>
+      <div class="note">the citizen's intake experience — mostly still ahead of us</div>
+    </div>
+
+    <div class="decision">
+      <p class="dh">Decided during review · 9 Jul</p>
+      <p class="dt"><b>Retire the <code>/desk/intake</code> staff confirm step.</b> Once the chat is smart enough to vet the report with the submitter — right department, address, photo — that <em>is</em> the quality check, and it routes straight to the department (the reviewer reassigns if it's mis-routed). This is the <b>end-state of the intake build below</b>, not a separate deletion: today that gate is the only bridge for anonymous voice reports, so it's removed once the smart chat replaces it.</p>
+    </div>
+
+    <div class="item">
+      <span class="pill road">Roadmap</span>
+      <div class="body">
+        <p class="ask">A vague report ("a pothole on my road") should open a chatbot that asks the questions the form needs.</p>
+        <p class="built">Not built yet. Discovery: a real one-question-at-a-time conversation <span class="b">already exists</span> on the logged-in intake — so this becomes a "bring it to the anonymous voice path" job, not from scratch.</p>
+        <div class="where">next build</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <span class="pill road">Roadmap</span>
+      <div class="body">
+        <p class="ask">The address should auto-fill from the city's reference data ("419 Fulton St" → full Peoria address).</p>
+        <p class="built">Not wired into the conversation yet. Address verification/geocoding <span class="b">exists</span> on the voice path; it needs to be pulled into the chat flow.</p>
+        <div class="where">next build (pairs with the item above)</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <span class="pill ok">Shipped</span>
+      <div class="body">
+        <p class="ask">End with a review step and a "Looks right — send to the city" button; let people edit the form.</p>
+        <p class="built">Already present — both intake paths show a "review your report" summary with an editable form and a send button.</p>
+        <div class="where"><b>/report</b> and <b>/intake</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── DESK ── -->
+  <section>
+    <div class="shead">
+      <h2>2 · Desk</h2>
+      <div class="note">the staff review console — where nearly all the work went</div>
+    </div>
+
+    <div class="item">
+      <span class="pill ok">Shipped</span>
+      <div class="body">
+        <p class="ask">Keep "items waiting for review" as a table at the top.</p>
+        <p class="built">Kept, now as the <span class="b">"Cases waiting your review"</span> tab.</p>
+        <div class="where"><b>/desk</b> → tab 1</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <span class="pill ok">Shipped</span>
+      <div class="body">
+        <p class="ask">Tickets shouldn't disappear once resolved — want a second tab with every case in the city.</p>
+        <p class="built">New <span class="b">"All cases in the city"</span> tab lists every case at any status (resolved and denied included). The disappearing was because the queue only showed what was pending on you.</p>
+        <div class="where"><b>/desk</b> → All cases</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <span class="pill partial">Partial</span>
+      <div class="body">
+        <p class="ask">That list should show category, current reviewer, elapsed time, and the SLA (goal resolution time).</p>
+        <p class="built">Category, status, current reviewer, and elapsed age are live. The <span class="b">SLA column is in place but shows "—"</span> until you + Blake set the Peoria target numbers (then it's a one-line config).</p>
+        <div class="where"><b>/desk</b> → All cases → table</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <span class="pill ok">Shipped</span>
+      <div class="body">
+        <p class="ask">Filters up top; and an export-to-CSV button for the current view.</p>
+        <p class="built">Search + category + status filters, and <span class="b">Export CSV</span> of exactly the current filtered rows.</p>
+        <div class="where"><b>/desk</b> → All cases → filter bar</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <span class="pill ok">Shipped</span>
+      <div class="body">
+        <p class="ask">Click a case → details open in the right third of the screen for quick reference.</p>
+        <p class="built">Right-side detail pane opens on row click, with an "Open full review →" link.</p>
+        <div class="where"><b>/desk</b> → All cases → click a row</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <span class="pill ok">Shipped</span>
+      <div class="body">
+        <p class="ask">Clicking a case opens a multi-tabbed window: form output, workflow, and chat/change log.</p>
+        <p class="built">Review screen rebuilt into three tabs — <span class="b">Form · Workflow · Chat &amp; change log</span>.</p>
+        <div class="where"><b>/desk/{case}</b> → tabs</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <span class="pill ok">Shipped</span>
+      <div class="body">
+        <p class="ask">If you're the current reviewer: three buttons with text boxes — Approve ("what work?"), Requires re-submit ("what info?"), Deny ("why?").</p>
+        <p class="built">All three, at the top of the Form tab: Approve → <span class="b">"what work was completed?"</span>, Re-submit → "what info do you need?" + field picks, Deny → "why? (required)".</p>
+        <div class="where"><b>/desk/{case}</b> → Form tab</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <span class="pill ok">Shipped</span>
+      <div class="body">
+        <p class="ask">Status circles: green = done, red = denied, open = not yet; completed steps greyed out.</p>
+        <p class="built">Exactly that on the Workflow tab — <span class="b">green done · red denied · amber current · hollow not-started</span>, done steps dimmed.</p>
+        <div class="where"><b>/desk/{case}</b> → Workflow tab</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <span class="pill ok">Shipped</span>
+      <div class="body">
+        <p class="ask">Steps shouldn't be freely added/removed — instead, reassign a review step to the right department and change the case type (Public Works ↔ Community Development).</p>
+        <p class="built">Reassign control: pick the target department, optionally relabel the case type, and it re-routes — leaving your queue, landing in theirs.</p>
+        <div class="where"><b>/desk/{case}</b> → Workflow tab → Reassign</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <span class="pill ok">Shipped</span>
+      <div class="body">
+        <p class="ask">Reassignment must require a written reason — no context causes real problems.</p>
+        <p class="built">The <span class="b">"why?" field is mandatory</span>; the button won't submit without it, and the reason is saved to the record and sent to the receiving department.</p>
+        <div class="where"><b>/desk/{case}</b> → Workflow → Reassign</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <span class="pill partial">Partial</span>
+      <div class="body">
+        <p class="ask">Chat / change log: view the original conversation, then every change since (who did what, when).</p>
+        <p class="built">Chat-log tab shows the change log (who/what/when) plus the resident's <span class="b">original words</span>. The transcript now shows for <span class="b">new</span> cases — older cases pre-date the change and show a clean empty state.</p>
+        <div class="where"><b>/desk/{case}</b> → Chat &amp; change log</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <span class="pill ok">Shipped</span>
+      <div class="body">
+        <p class="ask">Remove "Confirm &amp; Launch" and the "frozen into the audit record" wording — it's confusing.</p>
+        <p class="built">Reworded to plain language — the button now reads <span class="b">"Create the case"</span> and the jargon is gone.</p>
+        <div class="where"><b>/desk/intake</b></div>
+      </div>
+    </div>
+
+    <div class="item">
+      <span class="pill road">Roadmap</span>
+      <div class="body">
+        <p class="ask">When a case resolves, email whoever signed up a survey (service, timeliness, suggestions) — the improvement loop.</p>
+        <p class="built">Not built yet. The email delivery plumbing already exists, so this is a survey form + a trigger on case-close.</p>
+        <div class="where">next build</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <span class="pill ok">Shipped</span>
+      <div class="body">
+        <p class="ask">(From your QA) Approve shouldn't bounce back to the queue — stay so the reviewer sees the confirmation.</p>
+        <p class="built">Decisions now stay on the case and refresh the circles in place, with "← back to queue" when you're done.</p>
+        <div class="where"><b>/desk/{case}</b> → after any action</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── TRACK ── -->
+  <section>
+    <div class="shead">
+      <h2>3 · Track</h2>
+      <div class="note">the citizen's status page — already a good MVP</div>
+    </div>
+
+    <div class="item">
+      <span class="pill ok">Shipped</span>
+      <div class="body">
+        <p class="ask">"Time waiting on you" doesn't sound nice — keep it internal, leave it off this page.</p>
+        <p class="built">Removed from the citizen's view (still tracked internally for metrics). Only "time with the city" remains.</p>
+        <div class="where"><b>/track/{case}</b></div>
+      </div>
+    </div>
+
+    <div class="item">
+      <span class="pill road">Deferred</span>
+      <div class="body">
+        <p class="ask">Down the road: nudge signed-out users to make an account so the city can communicate with them.</p>
+        <p class="built">Not built — Blake explicitly marked this "down the road," so it's parked for a later pass.</p>
+        <div class="where">future</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── BRANCHING ── -->
+  <section>
+    <div class="shead">
+      <h2>4 · Branching question</h2>
+      <div class="note">Blake said don't worry about it for now</div>
+    </div>
+
+    <div class="item">
+      <span class="pill road">Deferred</span>
+      <div class="body">
+        <p class="ask">For now, don't worry about the "ping someone who just approves if it's not relevant" pattern. If it bites later, use conditional/parallel gates that rejoin at an end gate.</p>
+        <p class="built">No action taken, per Blake. Parallel gates already work today; conditional branch-and-rejoin is the future path if it's ever needed.</p>
+        <div class="where">no action needed</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── ROADMAP ── -->
+  <section>
+    <div class="shead">
+      <h2>What's next</h2>
+      <div class="note">the full remaining list, in rough priority</div>
+    </div>
+    <div class="roadmap">
+      <ul>
+        <li><span class="t">Conversational voice intake + address autofill.</span> <span class="d">Blake's whole Reporting section — unify the existing chat loop into the anonymous voice path and wire in address completion. <b>End-state: the smart chat vets and routes straight to the owning department, retiring the <code>/desk/intake</code> staff step entirely.</b></span></li>
+        <li><span class="t">Survey-on-resolution email loop.</span> <span class="d">Feedback survey sent when a case closes; email plumbing already exists.</span></li>
+        <li><span class="t">SLA target numbers.</span> <span class="d">You + Blake set the per-category goals; then they drop into the placeholder column.</span></li>
+        <li><span class="t">Chat-log transcript for the logged-in intake path.</span> <span class="d">The voice path is covered; the chat path doesn't persist its conversation yet.</span></li>
+        <li><span class="t">Deferred by Blake.</span> <span class="d">Track's account nudge, and workflow branching — both explicitly parked.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    Designed, built, unit-tested (33 engine tests), browser-verified, deployed, and confirmed working on neuronify.ai · Track One municipal workflow · July 2026
+  </footer>
+</div>
