@@ -17,7 +17,8 @@
     "engine:smoke": "node --import tsx scripts/smoke-engine.ts",
     "engine:smoke:graph": "node --import tsx scripts/smoke-engine-graph.ts",
     "demo:seed": "node --import tsx scripts/seed-demo.ts",
-    "taxonomy:cleanup": "node --import tsx scripts/cleanup-stale-taxonomy-forms.ts"
+    "taxonomy:cleanup": "node --import tsx scripts/cleanup-stale-taxonomy-forms.ts",
+    "desks:check": "node --import tsx scripts/check-desks.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",

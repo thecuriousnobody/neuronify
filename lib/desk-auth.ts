@@ -28,6 +28,16 @@ export function deskConfigured(): boolean {
   return passcodeMap().size > 0;
 }
 
+/**
+ * The departments that can actually be signed into. A report routed to a
+ * department NOT in this list opens a workflow nobody can reach — it persists,
+ * notifies, and is then invisible. Callers that route a submission must
+ * reconcile the canonical owner against this list first.
+ */
+export function configuredDepartments(): string[] {
+  return [...passcodeMap().keys()];
+}
+
 export function departments(): string[] {
   return [...passcodeMap().keys()];
 }

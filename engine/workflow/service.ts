@@ -77,13 +77,23 @@ export async function loadInstance(
  */
 export async function submitForm(
   env: EngineEnv,
-  input: Omit<Submission, 'id' | 'submittedAt' | 'formVersion'> & { formVersion?: number },
+  input: Omit<Submission, 'id' | 'submittedAt' | 'formVersion'> & {
+    formVersion?: number;
+    /**
+     * Run this workflow instead of the form's own `workflowKey`. The form is
+     * authored against the CANONICAL owning department; only the caller knows
+     * which desks are actually staffed. Used to reroute a report away from a
+     * department nobody can sign in to — see /api/v2/submit-anon.
+     */
+    workflowKey?: string;
+  },
 ): Promise<{ submissionId: string; instanceId: string }> {
   const form: FormDefinition | null = await env.repo.getFormDefinition(input.formKey, input.formVersion);
   if (!form) fail('FORM_NOT_FOUND', `no form definition "${input.formKey}"`);
 
-  const def = await env.repo.getWorkflowDefinition(form!.workflowKey);
-  if (!def) fail('WORKFLOW_DEF_NOT_FOUND', `form "${input.formKey}" names missing workflow "${form!.workflowKey}"`);
+  const workflowKey = input.workflowKey ?? form!.workflowKey;
+  const def = await env.repo.getWorkflowDefinition(workflowKey);
+  if (!def) fail('WORKFLOW_DEF_NOT_FOUND', `form "${input.formKey}" names missing workflow "${workflowKey}"`);
 
   const submission: Submission = {
     id: env.ids.next(),

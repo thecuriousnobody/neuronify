@@ -23,9 +23,11 @@ import {
   formForCategory,
   resolveCategory,
   departmentFor,
+  departmentFlowKey,
   TEMPLATE_FORM_CITY,
   type FieldValue,
 } from '@/engine';
+import { configuredDepartments } from '@/lib/desk-auth';
 import { rateLimit } from '@/lib/ratelimit';
 import { resolveCity } from '@/lib/cities';
 import { errorResponse } from '@/lib/engine/http';
@@ -127,7 +129,22 @@ export async function POST(req: Request) {
   }
 
   const city = resolveCity(body?.city ?? TEMPLATE_FORM_CITY);
-  const department = departmentFor(city.db, category);
+  const canonical = departmentFor(city.db, category);
+
+  // Reconcile the canonical owner against the desks that can actually be signed
+  // into. Routing to an unstaffed department opens a workflow nobody can reach:
+  // the report persists and notifies, then goes silent forever. Same rule the
+  // digest path already applies (see classify's `departments` option) — hand it
+  // to a staffed desk so a human receives it and can reassign.
+  const staffed = configuredDepartments();
+  const reachable = staffed.length === 0 || staffed.includes(canonical);
+  const department = reachable ? canonical : staffed[0];
+  if (!reachable) {
+    console.error(
+      `[submit-anon] "${category}" is owned by "${canonical}", which has no desk in DESK_PASSCODES. ` +
+        `Routing to "${department}" for reassignment. Add "${canonical}:<passcode>" to route it straight through.`,
+    );
+  }
 
   try {
     const result = await submitForm(engineEnv(), {
@@ -135,8 +152,11 @@ export async function POST(req: Request) {
       city: city.db,
       source,
       values,
+      // The form is authored against the canonical owner; if that desk isn't
+      // staffed, run the reachable department's flow instead.
+      ...(reachable ? {} : { workflowKey: departmentFlowKey(department as any) }),
     });
-    return Response.json({ ...result, category, department });
+    return Response.json({ ...result, category, department, canonicalDepartment: canonical });
   } catch (err) {
     return errorResponse(err);
   }
