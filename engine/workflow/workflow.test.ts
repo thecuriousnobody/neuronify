@@ -309,3 +309,17 @@ test('audit log is append-only: deriving never mutates events', () => {
   deriveInstance(h.log, def);
   assert.equal(JSON.stringify(h.log), before, 'log unchanged by derivation');
 });
+
+// The "we received it" note is relayed to the RESIDENT (SMS included), so it
+// must never carry a raw form key. It said "We received your
+// intake_noise_complaint and started review." until 2026-07-28 — the taxonomy
+// rename made a long-standing leak newly obvious.
+test('the submitted relay names the report in plain language, not a form key', () => {
+  const h = harness();
+  const start = startWorkflow({ ...submission, formKey: 'intake_noise_complaint' }, def, h.ctx);
+  const note = start.communications.find((c) => c.reason === 'submitted');
+  assert.ok(note, 'no submitted relay was emitted');
+  assert.ok(!note!.message.includes('intake_'), `leaked a form key: ${note!.message}`);
+  assert.ok(!note!.message.includes('_'), `leaked an underscore: ${note!.message}`);
+  assert.match(note!.message, /noise complaint/);
+});

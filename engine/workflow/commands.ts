@@ -103,6 +103,17 @@ function nudgeStep(
 // ── commands ────────────────────────────────────────────────────────────────
 
 /**
+ * A form key as a resident should hear it. This message is relayed to the
+ * person who filed the report (SMS included), so it must not leak an internal
+ * key: "intake_noise_complaint" → "noise complaint", "pothole_report" →
+ * "pothole report".
+ */
+function residentFormName(formKey: string): string {
+  const name = formKey.replace(/^intake_/, '').replace(/_/g, ' ').trim();
+  return name || 'report';
+}
+
+/**
  * Open the workflow for a freshly verified submission. Emits workflow.opened,
  * opens the first step, and relays a "we received it" note. Returns the new
  * instance id alongside the events so the caller can key future commands.
@@ -168,7 +179,13 @@ export function startWorkflow(
     nudgeStep(ctx, inst, first, out);
   }
 
-  relay(ctx, inst, 'submitted', `We received your ${submission.formKey} and started review.`, out);
+  relay(
+    ctx,
+    inst,
+    'submitted',
+    `We received your ${residentFormName(submission.formKey)} and started review.`,
+    out,
+  );
   return { ...out, instanceId };
 }
 
