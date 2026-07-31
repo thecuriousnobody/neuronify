@@ -31,7 +31,9 @@ OUTPUT RULES — CRITICAL: Output ONLY raw JSON. No markdown, no code fences, no
 Schema:
 {
   "reply": "your next message to the resident",
-  "extracted": { "<fieldKey>": <value> }
+  "extracted": { "<fieldKey>": <value> },
+  "suggestions": ["short answer", "another"]
 }
-"extracted" holds ONLY fields you newly understood from the resident's latest message; use {} if none. Use the exact field keys above.`;
+"extracted" holds ONLY fields you newly understood from the resident's latest message; use {} if none. Use the exact field keys above.
+"suggestions": when your question offers a small set of natural answers (choices you listed, yes/no, either/or), give them as 2–5 tap-able answers, each ≤ 4 words, phrased exactly as a resident would answer. Omit or use [] for open-ended questions (descriptions, addresses).`;
 }

@@ -29,6 +29,25 @@ export interface IntakeTurn {
   /** True once every required NON-attachment field is filled. Attachments are
    *  gathered in the verify step, so they don't block the conversation. */
   readyForReview: boolean;
+  /** Tap-able quick answers to `reply`, when the question has a natural small
+   *  answer set. Empty for open-ended questions. */
+  suggestions: string[];
+}
+
+/** The LLM's suggestions are shown as buttons — keep them short, few, and clean. */
+function sanitizeSuggestions(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const s of raw) {
+    if (typeof s !== 'string') continue;
+    const t = s.trim();
+    if (!t || t.length > 40 || seen.has(t.toLowerCase())) continue;
+    seen.add(t.toLowerCase());
+    out.push(t);
+    if (out.length === 5) break;
+  }
+  return out;
 }
 
 function coerce(field: FormField, raw: unknown): FieldValuePrimitive | undefined {
@@ -91,7 +110,11 @@ export async function runIntakeTurn(
   const user = `Known values so far: ${known}\n\nConversation so far:\n${transcript || '(none)'}\n\nResident just said: "${userMessage}"\n\nReturn the JSON.`;
 
   const raw = await llm.complete({ system: intakeSystemPrompt(form), user, maxTokens: 600 });
-  const parsed = parseLooseJSON<{ reply?: string; extracted?: Record<string, unknown> }>(raw);
+  const parsed = parseLooseJSON<{
+    reply?: string;
+    extracted?: Record<string, unknown>;
+    suggestions?: unknown;
+  }>(raw);
 
   const draft = mergeDraft(form, priorDraft, parsed.extracted ?? {});
   const missing = missingRequired(form, draft);
@@ -104,5 +127,6 @@ export async function runIntakeTurn(
     draft,
     missing,
     readyForReview: missingNonAttachment.length === 0,
+    suggestions: sanitizeSuggestions(parsed.suggestions),
   };
 }

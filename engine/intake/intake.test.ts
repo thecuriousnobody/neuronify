@@ -62,3 +62,29 @@ test('ignores hallucinated / uncoercible extractions', async () => {
   assert.equal(turn.draft.find((v) => v.fieldKey === 'severity'), undefined, 'value not in choices is dropped');
   assert.equal(turn.draft.find((v) => v.fieldKey === 'nonexistent'), undefined, 'unknown field is dropped');
 });
+
+test('suggestions pass through sanitized; junk is dropped', async () => {
+  const llm = new ScriptedLLM([
+    JSON.stringify({
+      reply: 'Middle of the intersection, or on a corner?',
+      extracted: {},
+      suggestions: [
+        'Middle of the intersection',
+        'On a corner',
+        '  On a corner ', // dupe after trim (case-insensitive)
+        42, // not a string
+        '', // empty
+        'x'.repeat(60), // too long for a button
+        'a', 'b', 'c', 'd', // overflow past 5
+      ],
+    }),
+  ]);
+  const turn = await runIntakeTurn(llm, form, [], [], 'at Adams and Main');
+  assert.deepEqual(turn.suggestions, ['Middle of the intersection', 'On a corner', 'a', 'b', 'c']);
+});
+
+test('no suggestions field → empty array, never undefined', async () => {
+  const llm = new ScriptedLLM([JSON.stringify({ reply: 'Where is it?', extracted: {} })]);
+  const turn = await runIntakeTurn(llm, form, [], [], 'pothole');
+  assert.deepEqual(turn.suggestions, []);
+});

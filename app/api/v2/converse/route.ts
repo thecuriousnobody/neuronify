@@ -109,6 +109,7 @@ export async function POST(req: Request) {
       draft: turn.draft,
       missing: turn.missing,
       readyForReview: turn.readyForReview,
+      suggestions: turn.suggestions,
       geo,
     });
   } catch (err) {

@@ -78,6 +78,9 @@ export default function ReportChat() {
   // The photo escape hatch: a report is never blocked over a photo, but
   // skipping one requires a reason, which travels with the record to the crew.
   const [noPhotoReason, setNoPhotoReason] = useState<Record<string, string>>({});
+  // The agent's own quick answers for its latest question (beats the schema
+  // fallback — it matches whatever the agent actually asked).
+  const [suggested, setSuggested] = useState<string[]>([]);
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [allCategories, setAllCategories] = useState<CategoryOption[] | null>(null);
   const [picking, setPicking] = useState(false);
@@ -106,6 +109,7 @@ export default function ReportChat() {
     if (!text || busy) return;
     setInput('');
     setError('');
+    setSuggested([]); // stale chips must not outlive the question they answered
     const nextHistory = [...messages, { role: 'user' as const, text }];
     setMessages(nextHistory);
     setBusy(true);
@@ -139,6 +143,7 @@ export default function ReportChat() {
         if (Array.isArray(data.draft)) setDraft(data.draft);
         setReady(Boolean(data.readyForReview));
       }
+      if (Array.isArray(data.suggestions)) setSuggested(data.suggestions);
       if (data.geo) setGeo(data.geo);
     } catch (e: any) {
       setError(e.message);
@@ -402,8 +407,10 @@ export default function ReportChat() {
     );
   }
 
-  // Quick-reply chips: when the next unanswered required field is a choice or
-  // a yes/no, serve its options as one-tap answers. Typing always still works.
+  // Quick-reply chips. The agent's own suggestions win — they match whatever
+  // it actually asked (even improvised clarifications). Fallback: when the
+  // next unanswered required field is a choice or yes/no, serve its options.
+  // Typing always still works.
   const nextAsk =
     form && !ready && !busy
       ? form.fields.find((f) => {
@@ -412,12 +419,13 @@ export default function ReportChat() {
           return v == null || v === '';
         })
       : null;
-  const quickChips =
+  const schemaChips =
     nextAsk?.type === 'choice' && nextAsk.choices?.length
       ? nextAsk.choices
       : nextAsk?.type === 'boolean'
         ? ['yes', 'no']
         : null;
+  const quickChips = busy || ready ? null : suggested.length ? suggested : schemaChips;
 
   return (
     <main className={styles.wrap}>
