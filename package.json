@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "node --import tsx --test $(find engine -name '*.test.ts')",
+    "test": "node --import tsx --test $(find engine lib -name '*.test.ts')",
     "typecheck": "tsc --noEmit",
     "db:setup": "node scripts/setup-db.mjs",
     "engine:db:setup": "node scripts/setup-engine-db.mjs",

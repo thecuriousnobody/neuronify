@@ -17,13 +17,31 @@ export interface GeoMatch {
 
 const CENSUS_URL = 'https://geocoding.geo.census.gov/geocoder/locations/onelineaddress';
 
-/** Strip spoken filler so the geocoder sees a plain address/intersection. */
-function normalize(raw: string): string {
+/** Strip spoken filler so the geocoder sees a plain address/intersection.
+ *  Careful with directions: "north side" is filler, but "North University
+ *  Street" is a real street — only compound descriptors are dropped.
+ *  (Observed live: "…, north side median" partial-matched to "North St,
+ *  Rome, IL", 15 miles out of town.) */
+export function normalizeLocation(raw: string): string {
   return raw
     .replace(/\b(the\s+)?(junction|corner|intersection)\s+of\b/gi, '')
     .replace(/\b(near|by|at|around)\b/gi, '')
+    .replace(/\b(north|south|east|west)\s*-?\s*(side|bound|end)\b/gi, '')
+    .replace(/\b(median|shoulder|crosswalk|middle\s+of\s+the\s+road)\b/gi, '')
+    .replace(/\s*,\s*(?=,|$)/g, '') // collapse comma debris left by stripping
     .replace(/\s+/g, ' ')
+    .replace(/^[\s,]+|[\s,]+$/g, '')
     .trim();
+}
+
+/** A match that names a different town than the one we anchored the query to
+ *  is worse than no match — the crew would drive there. Conservative: the
+ *  formatted address must mention the city (covers "Peoria" and
+ *  "Peoria Heights"; a suburb that doesn't say the name fails soft to the
+ *  resident's own words). */
+export function matchInCity(formattedAddress: string, city: string): boolean {
+  const head = city.split(',')[0].trim().toLowerCase();
+  return !head || formattedAddress.toLowerCase().includes(head);
 }
 
 /**
@@ -34,15 +52,22 @@ function normalize(raw: string): string {
  * the UI just shows the resident's own words.
  */
 export async function geocodeApprox(rawLocation: string, city: string): Promise<GeoMatch | null> {
-  const cleaned = normalize(rawLocation);
+  const cleaned = normalizeLocation(rawLocation);
   if (!cleaned) return null;
   // The agent often already includes the city ("... , Peoria, IL"); don't append
   // it twice — Google tolerates it, but the query stays cleaner this way.
   const head = city.split(',')[0].trim().toLowerCase();
   const anchored = head && cleaned.toLowerCase().includes(head) ? cleaned : `${cleaned}, ${city}`;
-  return process.env.GOOGLE_MAPS_API_KEY
+  const match = await (process.env.GOOGLE_MAPS_API_KEY
     ? geocodeGoogle(anchored)
-    : geocodeCensus(anchored);
+    : geocodeCensus(anchored));
+  // Trust but verify: a result in some OTHER town (Google drifts on messy
+  // queries) is discarded rather than pinned — no pin beats a wrong pin.
+  if (match && !matchInCity(match.matched, city)) {
+    console.warn(`[geocode] out-of-city match dropped: "${anchored}" -> "${match.matched}"`);
+    return null;
+  }
+  return match;
 }
 
 // Google Geocoding — strong on intersections, landmarks, and loose phrasing.
