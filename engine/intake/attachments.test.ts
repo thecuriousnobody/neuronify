@@ -86,3 +86,49 @@ describe('isAllowedAttachmentUrl — no store id configured (fallback)', () => {
     assert.equal(isAllowedAttachmentUrl('https://notblob.vercel-storage.com/x.png', null), false);
   });
 });
+
+import { missingRequiredFields } from './attachments';
+
+const FIELDS = [
+  { key: 'photo', label: 'Photo', type: 'attachment', required: true },
+  { key: 'what', label: 'What’s going on?', type: 'longtext', required: true },
+  { key: 'hazard', label: 'Is it a safety hazard?', type: 'boolean', required: true },
+  { key: 'extra', label: 'Anything else?', type: 'longtext', required: false },
+] as any[];
+
+describe('missingRequiredFields — the photo escape hatch', () => {
+  const base = [
+    { fieldKey: 'what', value: 'TEST — big pothole' },
+    { fieldKey: 'hazard', value: false },
+  ];
+
+  it('a required photo is satisfied by an attachment', () => {
+    const values = [...base, { fieldKey: 'photo', value: null, attachmentIds: ['https://x.private.blob.vercel-storage.com/reports/a.png'] }];
+    assert.deepEqual(missingRequiredFields(FIELDS, values as any), []);
+  });
+
+  it('a required photo is satisfied by a recorded reason instead', () => {
+    const values = [...base, { fieldKey: 'photo', value: 'my phone camera is broken' }];
+    assert.deepEqual(missingRequiredFields(FIELDS, values as any), []);
+  });
+
+  it('neither photo nor reason → the photo is missing', () => {
+    const values = [...base, { fieldKey: 'photo', value: null }];
+    assert.deepEqual(missingRequiredFields(FIELDS, values as any), ['Photo']);
+  });
+
+  it('a whitespace-only reason does not count', () => {
+    const values = [...base, { fieldKey: 'photo', value: '   ' }];
+    assert.deepEqual(missingRequiredFields(FIELDS, values as any), ['Photo']);
+  });
+
+  it('boolean false satisfies a required boolean (No is an answer)', () => {
+    const values = [...base, { fieldKey: 'photo', value: 'no camera' }];
+    assert.deepEqual(missingRequiredFields(FIELDS, values as any), []);
+  });
+
+  it('missing required text field is reported; optional fields never are', () => {
+    const values = [{ fieldKey: 'photo', value: 'no camera' }, { fieldKey: 'hazard', value: true }];
+    assert.deepEqual(missingRequiredFields(FIELDS, values as any), ['What’s going on?']);
+  });
+});

@@ -15,7 +15,7 @@ type Detail = {
   submittedAt: string;
   source: string;
   status: string;
-  values: { fieldKey: string; value: unknown }[];
+  values: { fieldKey: string; value: unknown; attachmentIds?: string[] }[];
   fields: Field[];
   myScope: string[];
   myApprovalStatus: string | null;
@@ -319,11 +319,19 @@ export default function DeskDetailPage() {
           <div className={styles.section}>
             <div className={styles.sectionLabel}>The record</div>
             {detail.fields.map((f) => {
-              const v = detail.values.find((x) => x.fieldKey === f.key)?.value;
+              const fv = detail.values.find((x) => x.fieldKey === f.key);
+              const v = fv?.value;
+              // Attachments: a photo exists (viewer not built yet), or the
+              // resident recorded why they couldn't provide one, or nothing.
+              const attachmentText = fv?.attachmentIds?.length
+                ? '(photo attached — viewer coming soon)'
+                : typeof v === 'string' && v
+                  ? `No photo — resident said: “${v}”`
+                  : '—';
               return (
                 <div key={f.key} className={`${styles.row} ${scope.has(f.key) ? styles.mine : ''}`}>
                   <span className={styles.rowKey}>{f.label}</span>
-                  <span className={styles.rowVal}>{f.type === 'attachment' ? '(attachment — upload coming soon)' : fmtVal(v)}</span>
+                  <span className={styles.rowVal}>{f.type === 'attachment' ? attachmentText : fmtVal(v)}</span>
                 </div>
               );
             })}

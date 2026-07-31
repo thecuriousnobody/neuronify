@@ -132,23 +132,31 @@ Google geocoding is not answering — report it, do not continue to A8.
 
 ---
 
-### A5 · The photo requirement is real ⚠️ *key regression test*
+### A5 · The photo requirement is real — but never a wall ⚠️ *key regression test*
 
-Pothole is one of 8 photo-critical categories. This used to be broken: the field
-was marked required, the hint said optional, and nothing enforced it.
+Pothole is one of 8 photo-critical categories. The policy (as of 2026-07-31):
+a photo is required, **but a resident who can't provide one may skip it by
+recording a reason** — the report always files; the reason travels to the crew.
 
 **Do:** Answer the agent's remaining questions (road position, size, hazard) until
 the **"I've got what I need"** card appears. Click **Review & finish**. On the
-review screen, **do not attach a photo**. Click **Finish**.
+review screen, **do not attach a photo** and leave the reason input empty. Click
+**Finish**.
 
 **Expect:**
 - Submission is **blocked**
-- An error appears: *"This kind of report needs a photo before it can be filed — add one above."*
+- An error appears: *"This kind of report needs a photo — add one above, or tell
+  us why you can't provide one."*
 - The photo field's hint reads **"(required for this kind of report…)"**, NOT "(optional…)"
+- Below the picker there is a text input: *"Can't provide a photo? Tell the crew why…"*
 - You remain on the review screen
 
-**Fail if:** the report files without a photo, or the hint says "optional". Either
-means the requirement has regressed — report immediately.
+**Do NOT test the reason path by filing** — that would create an extra real
+report. The reason input's presence plus the block above is the check. (The
+reason path itself is covered by unit tests server-side.)
+
+**Fail if:** the report files with neither photo nor reason, the hint says
+"optional", or the reason input is missing.
 
 ---
 

@@ -14,6 +14,8 @@
 // attacker-controlled image. Without a store id (read-write-token setups,
 // tests) we fall back to accepting only the official host shape.
 
+import type { FormField, FieldValue } from '../domain/types';
+
 const BLOB_HOST_SUFFIX = '.blob.vercel-storage.com';
 const ACCESS_SEGMENTS = ['private', 'public'] as const;
 const STORE_ID_RE = /^[a-z0-9-]+$/;
@@ -50,4 +52,31 @@ export function isAllowedAttachmentUrl(url: string, storeId?: string | null): bo
     STORE_ID_RE.test(parts[0]) &&
     (ACCESS_SEGMENTS as readonly string[]).includes(parts[1])
   );
+}
+
+/**
+ * Required-field check for a submission.
+ *
+ * An attachment field is satisfied by an attachment OR by a nonempty string
+ * value — the resident's recorded reason they can't provide a photo. That's
+ * the conservative photo policy: a report is never blocked over a photo, but
+ * skipping one always leaves a reason in the record for the crew to read.
+ * Every other field type is satisfied by a nonempty value.
+ *
+ * Returns the labels of whatever is still missing.
+ */
+export function missingRequiredFields(fields: FormField[], values: FieldValue[]): string[] {
+  const byKey = new Map(values.map((v) => [v.fieldKey, v]));
+  return fields
+    .filter((f) => {
+      if (!f.required) return false;
+      const v = byKey.get(f.key);
+      if (!v) return true;
+      if (f.type === 'attachment') {
+        const hasReason = typeof v.value === 'string' && v.value.trim() !== '';
+        return !((v.attachmentIds?.length ?? 0) > 0 || hasReason);
+      }
+      return v.value == null || v.value === '';
+    })
+    .map((f) => f.label);
 }

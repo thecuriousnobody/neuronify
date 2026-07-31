@@ -75,6 +75,9 @@ export default function ReportChat() {
   // and its URLs need a signed request — we already have the file in hand.
   const [photos, setPhotos] = useState<Record<string, string>>({});
   const [photoPreviews, setPhotoPreviews] = useState<Record<string, string>>({});
+  // The photo escape hatch: a report is never blocked over a photo, but
+  // skipping one requires a reason, which travels with the record to the crew.
+  const [noPhotoReason, setNoPhotoReason] = useState<Record<string, string>>({});
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [allCategories, setAllCategories] = useState<CategoryOption[] | null>(null);
   const [picking, setPicking] = useState(false);
@@ -227,10 +230,12 @@ export default function ReportChat() {
     // problem here rather than after a round trip. The server re-checks — this
     // is a courtesy, not the enforcement.
     const needsPhoto = (form?.fields ?? []).filter(
-      (f) => f.type === 'attachment' && f.required && !photos[f.key],
+      (f) => f.type === 'attachment' && f.required && !photos[f.key] && !noPhotoReason[f.key]?.trim(),
     );
     if (needsPhoto.length) {
-      setError('This kind of report needs a photo before it can be filed — add one above.');
+      setError(
+        'This kind of report needs a photo — add one above, or tell us why you can’t provide one.',
+      );
       return;
     }
 
@@ -242,9 +247,14 @@ export default function ReportChat() {
 
       const out: Value = { fieldKey: f.key, value };
       if (f.type === 'attachment') {
-        // The stored Blob URL is the attachment; the field itself has no value.
-        out.value = null;
-        if (photos[f.key]) out.attachmentIds = [photos[f.key]];
+        if (photos[f.key]) {
+          // The stored Blob URL is the attachment; the field itself has no value.
+          out.value = null;
+          out.attachmentIds = [photos[f.key]];
+        } else {
+          // No photo — the field's value is the resident's reason (or null).
+          out.value = noPhotoReason[f.key]?.trim() || null;
+        }
       }
       if (f.type === 'location' && geo?.fieldKey === f.key) {
         out.geo = { lat: geo.lat, lon: geo.lon, matched: geo.matched };
@@ -573,6 +583,18 @@ export default function ReportChat() {
                         ? ' (required for this kind of report — snap or attach a photo)'
                         : ' (optional — snap or attach a photo)'}
                     </span>
+                  )}
+                  {f.required && !photos[f.key] && (
+                    <input
+                      type="text"
+                      className={styles.fieldInput}
+                      style={{ marginTop: 6 }}
+                      placeholder="Can’t provide a photo? Tell the crew why…"
+                      value={noPhotoReason[f.key] ?? ''}
+                      onChange={(e) =>
+                        setNoPhotoReason((r) => ({ ...r, [f.key]: e.target.value }))
+                      }
+                    />
                   )}
                 </div>
               ) : f.type === 'boolean' ? (

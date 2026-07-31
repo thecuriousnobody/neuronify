@@ -25,6 +25,7 @@ import {
   departmentFor,
   departmentFlowKey,
   isAllowedAttachmentUrl,
+  missingRequiredFields,
   TEMPLATE_FORM_CITY,
   type FieldValue,
 } from '@/engine';
@@ -102,8 +103,12 @@ export async function POST(req: Request) {
           { status: 400 },
         );
       }
-      if (urls.length) out.attachmentIds = urls;
-      out.value = null; // the URL lives in attachmentIds, not the value
+      if (urls.length) {
+        out.attachmentIds = urls;
+        out.value = null; // the URL lives in attachmentIds, not the value
+      }
+      // No attachment: a string value is the resident's recorded reason they
+      // can't provide a photo (the escape hatch) — keep it for the crew.
     }
 
     if (field.type === 'location' && v.geo && typeof v.geo === 'object') {
@@ -119,17 +124,9 @@ export async function POST(req: Request) {
   }
 
   // Re-validate server-side — never trust the client's sense of "ready".
-  const filled = new Set(
-    values.filter((v) => v.value !== '' && v.value != null).map((v) => v.fieldKey),
-  );
-  const withAttachment = new Set(
-    values.filter((v) => (v.attachmentIds?.length ?? 0) > 0).map((v) => v.fieldKey),
-  );
-  const missing = form.fields
-    .filter((f) =>
-      f.required && (f.type === 'attachment' ? !withAttachment.has(f.key) : !filled.has(f.key)),
-    )
-    .map((f) => f.label);
+  // (A required attachment is satisfied by a photo OR a recorded reason the
+  // resident can't provide one — see missingRequiredFields.)
+  const missing = missingRequiredFields(form.fields, values);
   if (missing.length) {
     return Response.json({ error: `Still missing: ${missing.join(', ')}` }, { status: 400 });
   }
