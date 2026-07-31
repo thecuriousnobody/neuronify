@@ -33,3 +33,7 @@ tsconfig.tsbuildinfo
 docs/soft-signal-brief.html
 docs/soft-signal-brief-print.html
 docs/Neuronify-Soft-Signal-Brief.pdf
+
+# secrets backups — .env*.local does NOT cover a .bak suffix
+.env.local.bak*
+.env*.bak*
