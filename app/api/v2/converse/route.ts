@@ -19,7 +19,7 @@ import {
 } from '@/engine';
 import { rateLimit } from '@/lib/ratelimit';
 import { errorResponse } from '@/lib/engine/http';
-import { geocodeApprox } from '@/lib/geocode';
+import { geocodeCandidates } from '@/lib/geocode';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -95,9 +95,12 @@ export async function POST(req: Request) {
     const newLoc = locField ? turn.draft.find((v) => v.fieldKey === locField.key)?.value : null;
     const priorLoc = locField ? draft.find((v) => v.fieldKey === locField.key)?.value : null;
     let geo: { fieldKey: string; matched: string; lat: number; lon: number } | null = null;
+    let geoCandidates: { matched: string; lat: number; lon: number }[] = [];
     if (locField && newLoc && newLoc !== priorLoc) {
-      const match = await geocodeApprox(String(newLoc), TEMPLATE_FORM_CITY);
-      if (match) geo = { fieldKey: locField.key, ...match };
+      // Top candidate auto-pins (zero friction); the rest ride along so the
+      // resident can tap "not this spot?" instead of typing corrections.
+      geoCandidates = await geocodeCandidates(String(newLoc), TEMPLATE_FORM_CITY);
+      if (geoCandidates[0]) geo = { fieldKey: locField.key, ...geoCandidates[0] };
     }
 
     return Response.json({
@@ -111,6 +114,7 @@ export async function POST(req: Request) {
       readyForReview: turn.readyForReview,
       suggestions: turn.suggestions,
       geo,
+      geoCandidates,
     });
   } catch (err) {
     return errorResponse(err);

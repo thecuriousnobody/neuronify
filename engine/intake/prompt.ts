@@ -37,5 +37,5 @@ Schema:
   "suggestions": ["short answer", "another"]
 }
 "extracted" holds ONLY fields you newly understood from the resident's latest message; use {} if none. Use the exact field keys above.
-"suggestions": when your question offers a small set of natural answers (choices you listed, yes/no, either/or), give them as 2–5 tap-able answers, each ≤ 4 words, phrased exactly as a resident would answer. Omit or use [] for open-ended questions (descriptions, addresses).`;
+"suggestions": 2–5 tap-able answers to YOUR question, each ≤ 4 words, phrased exactly as a resident would answer. Provide them on EVERY turn you can — not just for listed choices or yes/no. For open questions, PREDICT the most likely answers from context (e.g. after "is anyone in danger right now?" → ["Yes, right now", "No, but it's risky", "No"]). Use [] only when you truly have no basis to guess (a street address, a free description).`;
 }

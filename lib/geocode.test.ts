@@ -5,7 +5,7 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeLocation, matchInCity } from './geocode';
+import { normalizeLocation, matchInCity, pickCandidates } from './geocode';
 
 describe('normalizeLocation — descriptors out, street names intact', () => {
   it('strips "north side median" (the Rome trigger) but keeps the intersection', () => {
@@ -46,5 +46,32 @@ describe('matchInCity — no pin beats a wrong pin', () => {
 
   it('rejects other-state lookalikes', () => {
     assert.equal(matchInCity('Main St, Bloomington, IL 61701, USA', CITY), false);
+  });
+});
+
+describe('pickCandidates — in-city, deduped, capped, order kept', () => {
+  const CITY = 'Peoria, IL';
+  const mk = (matched: string) => ({ matched, lat: 40.69, lon: -89.59 });
+
+  it('filters out-of-city, dedupes case-insensitively, caps at 4', () => {
+    const out = pickCandidates(
+      [
+        mk('Pioneer Pkwy & N University St, Peoria, IL 61614, USA'),
+        mk('North St, Rome, IL 61523, USA'), // drift — dropped
+        mk('PIONEER PKWY & N UNIVERSITY ST, PEORIA, IL 61614, USA'), // dupe
+        mk('A St, Peoria, IL, USA'),
+        mk('B St, Peoria, IL, USA'),
+        mk('C St, Peoria, IL, USA'),
+        mk('D St, Peoria, IL, USA'), // over the cap
+      ],
+      CITY,
+    );
+    assert.equal(out.length, 4);
+    assert.equal(out[0].matched, 'Pioneer Pkwy & N University St, Peoria, IL 61614, USA');
+    assert.ok(!out.some((m) => /Rome/.test(m.matched)));
+  });
+
+  it('empty in → empty out', () => {
+    assert.deepEqual(pickCandidates([], CITY), []);
   });
 });

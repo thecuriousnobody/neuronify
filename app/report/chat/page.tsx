@@ -81,6 +81,11 @@ export default function ReportChat() {
   // The agent's own quick answers for its latest question (beats the schema
   // fallback — it matches whatever the agent actually asked).
   const [suggested, setSuggested] = useState<string[]>([]);
+  // Alternate geocoder pins — the top one auto-pins; these let the resident
+  // tap "not this spot?" instead of typing a correction.
+  const [geoCandidates, setGeoCandidates] = useState<
+    { matched: string; lat: number; lon: number }[]
+  >([]);
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [allCategories, setAllCategories] = useState<CategoryOption[] | null>(null);
   const [picking, setPicking] = useState(false);
@@ -145,6 +150,8 @@ export default function ReportChat() {
       }
       if (Array.isArray(data.suggestions)) setSuggested(data.suggestions);
       if (data.geo) setGeo(data.geo);
+      if (Array.isArray(data.geoCandidates) && data.geoCandidates.length)
+        setGeoCandidates(data.geoCandidates);
     } catch (e: any) {
       setError(e.message);
       setMessages(nextHistory);
@@ -464,6 +471,34 @@ export default function ReportChat() {
         >
           <span>📍</span>
           <span>Location found: <strong>{geo.matched}</strong></span>
+        </div>
+      )}
+      {geo && geoCandidates.length > 1 && (
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: '0.35rem',
+            margin: '0.3rem 0 0.2rem',
+          }}
+        >
+          <span style={{ fontSize: '0.75rem', color: 'var(--muted-2, #7b8794)' }}>
+            Not this spot?
+          </span>
+          {geoCandidates
+            .filter((c) => c.matched !== geo.matched)
+            .map((c) => (
+              <button
+                key={c.matched}
+                type="button"
+                onClick={() => setGeo({ fieldKey: geo.fieldKey, ...c })}
+                className={styles.secondary}
+                style={{ fontSize: '0.75rem', padding: '0.25rem 0.55rem' }}
+              >
+                {c.matched.replace(/, USA$/, '')}
+              </button>
+            ))}
         </div>
       )}
 
