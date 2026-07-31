@@ -330,6 +330,119 @@ not a silent hang, not a duplicate report.
 
 ---
 
+## Phase D — 2026-07-31 additions
+
+These test the day's shipped features. Most are observable during the SAME
+conversation as Phase A — run them together, file nothing extra.
+
+### D1 · Quick-reply chips (schema + agent-suggested)
+
+**Do:** During any report conversation, watch below the thread after each agent
+question.
+
+**Expect:**
+- Choice questions (road position, size) show their options as tap-able chips
+- Yes/no questions show chips
+- The agent also offers PREDICTED chips on questions without fixed choices,
+  when likely answers exist (e.g. an either/or it posed in its own words)
+- Open questions (the first description, a street address) may rightly have none
+- Tapping a chip sends it as a normal message; typing still works
+
+**Fail if:** chips never appear, a chip sends the wrong text, or chips linger
+on a question they don't answer.
+
+---
+
+### D2 · The agent never claims to file ⚠️ *regression — observed live*
+
+The model once said *"I'm sending this to our street repair team right now."*
+with three fields still unanswered — the resident waits forever.
+
+**Do:** In conversation, watch every agent reply until the "I've got what I
+need" card.
+
+**Expect:** while anything is still missing, every reply ends with a question;
+no reply ever says it is sending/filing/submitting the report.
+
+**Fail if:** any mid-conversation reply wraps up without a question, or claims
+the report has been sent.
+
+---
+
+### D3 · Address candidates — "Not this spot?"
+
+**Do:** Give a location. After the 📍 line appears, look under it.
+
+**Expect:**
+- The 📍 pin is in Peoria (or no pin at all) — NEVER another town ⚠️
+  *(regression: "north side median" once pinned Rome, IL, 15 miles away)*
+- When the geocoder had alternates, a "Not this spot?" row of tap-able
+  addresses appears; tapping one moves the pin
+- A single-candidate location legitimately shows no alternates row
+
+**Fail if:** the pin names a town other than Peoria / Peoria Heights, or
+tapping an alternate doesn't update the 📍 line.
+
+---
+
+### D4 · Photo escape hatch, resident side
+
+Covered by A5 (block requires BOTH photo and reason missing; reason input
+present). Do NOT file a reason-only report just to test — the desk rendering
+is checked in D6 against an existing record.
+
+---
+
+### D5 · Chat follows the conversation
+
+**Do:** Hold a conversation past one screen of messages.
+
+**Expect:** after each reply (and when chips render), the view lands with the
+composer fully visible — no manual scroll needed to type.
+
+**Fail if:** you have to scroll to reach the input box.
+
+---
+
+### D6 · Desk shows both photo states *(read-only, existing records)*
+
+**Do:** Sign in to Public Works. Open these existing records:
+- `0aa912e4-1075-4d25-b27c-cb5896cdd18e` (filed WITH a photo)
+- `96d6e904-cf36-4b81-8db4-ee89a89a674b` (filed with a REASON instead)
+
+**Expect:**
+- With photo: the photo row reads **"(photo attached — viewer coming soon)"**
+- With reason: **"No photo — resident said: “phone camera broken”"**
+
+**Fail if:** either shows the old blanket "(attachment — upload coming soon)",
+or the reason is missing.
+
+---
+
+### D7 · Desk sign-in eye toggle
+
+**Do:** On `/desk`, click the eye icon in the passcode field before signing in.
+
+**Expect:** passcode toggles visible/masked; icon switches between eye and
+eye-off; sign-in still works.
+
+---
+
+### D8 · Old doors are unlinked but alive
+
+**Do:** On the landing page, check every resident-facing link. On `/desk`
+(signed in), check the header.
+
+**Expect:**
+- Every landing "Speak up"/"File a report"/"Speak" link goes to `/report/chat`
+- No "Front desk →" link in the desk header
+- Direct URLs `/report` and `/desk/intake` still load (retirement pending)
+
+**Fail if:** any resident-facing link still targets `/report`, or the direct
+URLs 404.
+
+---
+
 ## Results
 
 Fill this in and hand it back.
@@ -353,6 +466,13 @@ Fill this in and hand it back.
 | C1 | Mobile | | |
 | C2 | Reduced motion | | |
 | C3 | Rate limiting is graceful | | |
+| D1 | Quick-reply chips | | |
+| **D2** | **Agent never claims to file** | | |
+| **D3** | **Pin never leaves town + candidates** | | |
+| D5 | Chat follows to the composer | | |
+| D6 | Desk renders both photo states | | |
+| D7 | Passcode eye toggle | | |
+| D8 | Old doors unlinked, still alive | | |
 
 **Bold rows are the ones that have broken before.** If you run a short version,
 run those.
