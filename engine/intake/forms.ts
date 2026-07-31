@@ -62,7 +62,7 @@ const EXTRA: Partial<Record<CategoryKey, FormField[]>> = {
   illegal_dumping: [
     { key: 'material', label: 'What was dumped?', type: 'choice', required: true, choices: ['household trash', 'construction debris', 'tires', 'appliances', 'furniture', 'hazardous or chemical'], prompt: 'pick the main type' },
     { key: 'volume', label: 'How much?', type: 'choice', required: true, choices: ['a few items', 'a pickup-truck load', 'more than that'] },
-    { key: 'on_property', label: 'Where is it?', type: 'choice', required: true, choices: ['public land or right-of-way', 'private property'] },
+    { key: 'on_property', label: 'On public or private land?', type: 'choice', required: true, choices: ['public land or right-of-way', 'private property'] },
   ],
   tree_issue: [
     { key: 'ownership', label: 'Where is the tree?', type: 'choice', required: true, choices: ['parkway (between sidewalk and street)', 'in a park', 'on private property'], prompt: 'the city handles public parkway and park trees; private-property trees are the owner’s responsibility' },
@@ -97,7 +97,7 @@ const EXTRA: Partial<Record<CategoryKey, FormField[]>> = {
   ],
   dead_animal: [
     { key: 'animal', label: 'What animal?', type: 'choice', required: true, choices: ['domestic pet', 'wild or other', 'rodent'] },
-    { key: 'on_property', label: 'Where is it?', type: 'choice', required: true, choices: ['public roadway or right-of-way', 'private property'] },
+    { key: 'on_property', label: 'On public or private land?', type: 'choice', required: true, choices: ['public roadway or right-of-way', 'private property'] },
   ],
   animal_concern: [
     { key: 'situation', label: 'What’s happening?', type: 'choice', required: true, choices: ['stray', 'injured', 'aggressive or dangerous', 'too many or nuisance'] },

@@ -94,18 +94,18 @@ export default function ReportChat() {
   const [tracking, setTracking] = useState('');
 
   const threadRef = useRef<HTMLDivElement>(null);
-  const threadEndRef = useRef<HTMLDivElement>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
   useEffect(() => {
     // The page (not .thread) is often the real scroller — .wrap is
-    // min-height, so the thread grows instead of overflowing. scrollIntoView
-    // on a sentinel follows the newest message either way.
+    // min-height, so the thread grows instead of overflowing. And the
+    // composer sits BELOW the thread, so "newest message visible" still left
+    // the input under the fold — follow all the way to the page bottom.
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: 'smooth' });
-    threadEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, [messages, busy, ready]);
+    window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+  }, [messages, busy, ready, suggested]);
 
   // `quick` may be a chip's value; the composer's onClick passes a MouseEvent,
   // so only trust it when it's actually a string.
@@ -606,7 +606,6 @@ export default function ReportChat() {
                 ))}
               </div>
             )}
-            <div ref={threadEndRef} aria-hidden />
           </div>
 
           {error && <div className={styles.error}>{error}</div>}
