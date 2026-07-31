@@ -86,16 +86,23 @@ export default function ReportChat() {
   const [tracking, setTracking] = useState('');
 
   const threadRef = useRef<HTMLDivElement>(null);
+  const threadEndRef = useRef<HTMLDivElement>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
   useEffect(() => {
+    // The page (not .thread) is often the real scroller — .wrap is
+    // min-height, so the thread grows instead of overflowing. scrollIntoView
+    // on a sentinel follows the newest message either way.
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: 'smooth' });
-  }, [messages, busy]);
+    threadEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [messages, busy, ready]);
 
-  async function send() {
-    const text = input.trim();
+  // `quick` may be a chip's value; the composer's onClick passes a MouseEvent,
+  // so only trust it when it's actually a string.
+  async function send(quick?: unknown) {
+    const text = (typeof quick === 'string' ? quick : input).trim();
     if (!text || busy) return;
     setInput('');
     setError('');
@@ -395,6 +402,23 @@ export default function ReportChat() {
     );
   }
 
+  // Quick-reply chips: when the next unanswered required field is a choice or
+  // a yes/no, serve its options as one-tap answers. Typing always still works.
+  const nextAsk =
+    form && !ready && !busy
+      ? form.fields.find((f) => {
+          if (!f.required || f.type === 'attachment') return false;
+          const v = draft.find((d) => d.fieldKey === f.key)?.value;
+          return v == null || v === '';
+        })
+      : null;
+  const quickChips =
+    nextAsk?.type === 'choice' && nextAsk.choices?.length
+      ? nextAsk.choices
+      : nextAsk?.type === 'boolean'
+        ? ['yes', 'no']
+        : null;
+
   return (
     <main className={styles.wrap}>
       <div className={styles.glow} aria-hidden />
@@ -509,6 +533,22 @@ export default function ReportChat() {
                 </button>
               </div>
             )}
+            {quickChips && !picking && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', margin: '0.2rem 0 0.4rem' }}>
+                {quickChips.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => send(c)}
+                    className={styles.secondary}
+                    style={{ fontSize: '0.82rem', padding: '0.4rem 0.7rem' }}
+                  >
+                    {c.charAt(0).toUpperCase() + c.slice(1)}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div ref={threadEndRef} aria-hidden />
           </div>
 
           {error && <div className={styles.error}>{error}</div>}
