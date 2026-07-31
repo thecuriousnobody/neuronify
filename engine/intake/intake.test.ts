@@ -88,3 +88,29 @@ test('no suggestions field → empty array, never undefined', async () => {
   const turn = await runIntakeTurn(llm, form, [], [], 'pothole');
   assert.deepEqual(turn.suggestions, []);
 });
+
+test('a question-free reply mid-collection gets the next missing field appended (the "sending it now" bug)', async () => {
+  const llm = new ScriptedLLM([
+    JSON.stringify({
+      reply: "Thanks — I'm sending this to our street repair team right now.",
+      extracted: { location: 'Pioneer Parkway near University Junction' },
+    }),
+  ]);
+  const turn = await runIntakeTurn(llm, form, [], [], 'the median is broken, a section is missing');
+  assert.equal(turn.readyForReview, false, 'hazard still missing — not ready');
+  assert.match(turn.reply, /\?$/, 'reply must end with a question while fields are missing');
+  assert.match(turn.reply, /Is it dangerous/i, 'asks the next missing required field');
+});
+
+test('a genuine wrap-up when everything is gathered is left alone', async () => {
+  const prior = [
+    { fieldKey: 'location', value: 'Knoxville & Sheridan' },
+    { fieldKey: 'hazard', value: true },
+  ];
+  const llm = new ScriptedLLM([
+    JSON.stringify({ reply: 'That’s everything — review and submit when ready.', extracted: {} }),
+  ]);
+  const turn = await runIntakeTurn(llm, form, [], prior, 'nope, that’s all');
+  assert.equal(turn.readyForReview, true);
+  assert.equal(turn.reply, 'That’s everything — review and submit when ready.', 'no question appended');
+});

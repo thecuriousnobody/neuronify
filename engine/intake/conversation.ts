@@ -122,11 +122,26 @@ export async function runIntakeTurn(
     (k) => form.fields.find((f) => f.key === k)?.type !== 'attachment',
   );
 
+  // The model must not wrap up while fields are missing — but prompts are
+  // advisory. If it produced a question-free reply mid-collection (observed
+  // live: "I'm sending this to our street repair team right now." with three
+  // fields still empty — the resident waits for a review card that never
+  // comes), deterministically append a question for the next missing field.
+  let reply = String(parsed.reply ?? '').trim();
+  const ready = missingNonAttachment.length === 0;
+  if (!ready && !reply.includes('?')) {
+    const next = form.fields.find((f) => missingNonAttachment.includes(f.key));
+    if (next) {
+      const q = `One more thing — ${next.label.replace(/\?+\s*$/, '')}?`;
+      reply = reply ? `${reply} ${q}` : q;
+    }
+  }
+
   return {
-    reply: String(parsed.reply ?? '').trim(),
+    reply,
     draft,
     missing,
-    readyForReview: missingNonAttachment.length === 0,
+    readyForReview: ready,
     suggestions: sanitizeSuggestions(parsed.suggestions),
   };
 }
