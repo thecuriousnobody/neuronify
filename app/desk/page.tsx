@@ -262,8 +262,9 @@ export default function DeskPage() {
         </span>
         <span>
           {city && <span className={styles.city}>{city} &nbsp;</span>}
-          <a className={styles.intakeLink} href="/desk/intake">Front desk →</a>
-          &nbsp;
+          {/* "Front desk →" link removed: /desk/intake is retiring (Blake
+              review 2026-07-09). Route stays alive as the bridge for
+              old-/report voice drops until that path is closed. */}
           <button className={styles.exit} onClick={signOut}>
             sign out
           </button>
