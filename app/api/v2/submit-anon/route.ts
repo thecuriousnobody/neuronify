@@ -24,6 +24,7 @@ import {
   resolveCategory,
   departmentFor,
   departmentFlowKey,
+  isAllowedAttachmentUrl,
   TEMPLATE_FORM_CITY,
   type FieldValue,
 } from '@/engine';
@@ -38,13 +39,6 @@ export const dynamic = 'force-dynamic';
 /** Free-form text can't be unbounded — this is an anonymous, public endpoint. */
 const MAX_TEXT = 4000;
 const MAX_VALUES = 40;
-/** Only our own Blob store — never let a submission cite an arbitrary URL. */
-const BLOB_HOST_RE = /^https:\/\/[a-z0-9-]+\.public\.blob\.vercel-storage\.com\//i;
-const BLOB_PRIVATE_RE = /^https:\/\/[a-z0-9-]+\.blob\.vercel-storage\.com\//i;
-
-function isOwnBlobUrl(url: string): boolean {
-  return BLOB_HOST_RE.test(url) || BLOB_PRIVATE_RE.test(url);
-}
 
 export async function POST(req: Request) {
   const ip =
@@ -91,11 +85,23 @@ export async function POST(req: Request) {
     const out: FieldValue = { fieldKey: field.key, value };
 
     // Attachments arrive as Blob URLs the client already uploaded via
-    // /api/v2/upload. Anything not from our own store is dropped, not stored.
+    // /api/v2/upload. Only URLs pinned to OUR store are stored — and a
+    // rejection is a loud 400, never a silent drop: silently discarding the
+    // photo here made a fully-attached report fail as "Still missing: A
+    // photo", which is undiagnosable from the client's side.
     if (field.type === 'attachment') {
-      const urls = (Array.isArray(v.attachmentIds) ? v.attachmentIds : [])
-        .filter((u: any) => typeof u === 'string' && isOwnBlobUrl(u))
+      const supplied: string[] = (Array.isArray(v.attachmentIds) ? v.attachmentIds : []).filter(
+        (u: any): u is string => typeof u === 'string',
+      );
+      const urls = supplied
+        .filter((u) => isAllowedAttachmentUrl(u, process.env.BLOB_STORE_ID))
         .slice(0, 5);
+      if (supplied.length && !urls.length) {
+        return Response.json(
+          { error: `The photo for “${field.label}” couldn’t be verified — please re-attach it.` },
+          { status: 400 },
+        );
+      }
       if (urls.length) out.attachmentIds = urls;
       out.value = null; // the URL lives in attachmentIds, not the value
     }

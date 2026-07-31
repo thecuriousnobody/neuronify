@@ -543,14 +543,21 @@ export default function ReportChat() {
               </label>
               {f.type === 'attachment' ? (
                 <div>
-                  {photoPreviews[f.key] ? (
+                  {photoPreviews[f.key] && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={photoPreviews[f.key]}
                       alt="uploaded"
                       style={{ maxWidth: '180px', borderRadius: 8, display: 'block', marginTop: 4 }}
                     />
-                  ) : (
+                  )}
+                  {/* The picker stays after a selection (relabelled "Replace") —
+                      destroying it stranded residents with no way to retry a
+                      photo the server wouldn't accept. */}
+                  <label style={{ display: 'block', marginTop: 4 }}>
+                    {photoPreviews[f.key] && (
+                      <span className={styles.attachNote}>Replace photo: </span>
+                    )}
                     <input
                       type="file"
                       accept="image/*"
@@ -558,7 +565,7 @@ export default function ReportChat() {
                       disabled={uploadingKey === f.key}
                       onChange={(e) => onPickPhoto(f.key, e.target.files?.[0] ?? null)}
                     />
-                  )}
+                  </label>
                   {uploadingKey === f.key && <span className={styles.attachNote}> Uploading…</span>}
                   {!photos[f.key] && uploadingKey !== f.key && (
                     <span className={styles.attachNote}>

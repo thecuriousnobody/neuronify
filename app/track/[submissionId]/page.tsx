@@ -36,7 +36,15 @@ function humanize(ms: number): string {
   return `${d}d ${h % 24}h`;
 }
 
-const pretty = (k: string) => k.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+// Residents never see internal form keys: drop the `intake_` namespace and the
+// v1 `_report` suffix before prettifying, so `intake_noise_complaint` reads
+// "Noise Complaint", not "Intake Noise Complaint".
+const pretty = (k: string) =>
+  k
+    .replace(/^intake_/, '')
+    .replace(/_report$/, '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 
 export default async function TrackPage({ params }: { params: { submissionId: string } }) {
   const view = await getInstanceView(engineEnv(), params.submissionId);
