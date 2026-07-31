@@ -58,6 +58,46 @@
   color: var(--muted-2);
 }
 
+/* ── /report's signature opening, worn here too ── */
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 15px;
+}
+.brandDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 10px var(--cyan);
+}
+.hero {
+  text-align: center;
+  padding: 1.6rem 0 1.1rem;
+}
+.heroPrompt {
+  font-size: 32px;
+  font-weight: 650;
+  margin: 10px 0;
+  line-height: 1.15;
+}
+.heroIt {
+  font-style: italic;
+  color: var(--cyan-bright);
+  font-weight: 500;
+}
+.heroSub {
+  color: var(--muted);
+  margin: 0 auto;
+  max-width: 44ch;
+  line-height: 1.55;
+  font-size: 0.95rem;
+}
+
 /* ── chat ── */
 .thread {
   flex: 1;

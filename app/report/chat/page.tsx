@@ -431,9 +431,24 @@ export default function ReportChat() {
     <main className={styles.wrap}>
       <div className={styles.glow} aria-hidden />
       <div className={styles.header}>
-        <span className={styles.title}>Report an issue</span>
+        <a href="/" className={styles.brand}>
+          <span className={styles.brandDot} />
+          Neuronify
+        </a>
         {routedBanner}
       </div>
+      {phase === 'chat' && messages.length <= 1 && (
+        <div className={styles.hero}>
+          <div className={styles.title}>Report an issue</div>
+          <h1 className={styles.heroPrompt}>
+            What needs <span className={styles.heroIt}>fixing?</span>
+          </h1>
+          <p className={styles.heroSub}>
+            Talk or type — a pothole, a dark street, a broken sign. We’ll read it back before
+            anything is filed.
+          </p>
+        </div>
+      )}
 
       {geo && (
         <div

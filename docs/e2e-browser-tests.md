@@ -73,12 +73,16 @@ confirm gate in between. The resident gets a reference number.
 **Do:** Open `/report/chat` in a fresh tab.
 
 **Expect:**
-- Monospace uppercase eyebrow `REPORT AN ISSUE` top-left, `Peoria, IL` top-right
+- **Neuronify** brand mark with a glowing cyan dot top-left (links home), `Peoria, IL` top-right
+- A centred hero (first load only — it collapses after the first message):
+  monospace eyebrow `REPORT AN ISSUE`, headline **"What needs *fixing?*"**
+  (with *fixing* italic cyan), and a one-line sub
 - One assistant bubble: *"Hi — I can help you report something to the city…"*
 - Bottom composer: round mic button, `Speak or type…` field, `Send` button
 - Dark background with a soft cyan glow; **no green buttons, no solid-blue bubbles**
 
-**Fail if:** the page is light-themed, buttons are green, or the greeting is missing.
+**Fail if:** the page is light-themed, buttons are green, the brand mark or hero
+is missing, or the greeting is missing.
 
 ---
 
