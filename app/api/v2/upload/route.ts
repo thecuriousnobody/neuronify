@@ -52,7 +52,7 @@ export async function POST(req: Request): Promise<Response> {
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
     req.headers.get('x-real-ip') ||
     'unknown';
-  const limit = rateLimit(ip);
+  const limit = rateLimit(ip, 'upload');
   if (!limit.ok) return Response.json({ error: limit.reason }, { status: 429 });
 
   const body = (await req.json()) as HandleUploadPresignedBody;

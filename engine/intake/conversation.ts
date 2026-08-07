@@ -83,7 +83,11 @@ export function mergeDraft(
     if (!(field.key in extracted)) continue;
     const value = coerce(field, extracted[field.key]);
     if (value === undefined) continue; // ignore uncoercible / empty extractions
-    byKey.set(field.key, { fieldKey: field.key, value });
+    // Keep whatever the slot already carried alongside its value. An uploaded
+    // photo and a resolved geocode are not things the model can re-state, so
+    // overwriting the whole entry would silently drop them.
+    const previous = byKey.get(field.key);
+    byKey.set(field.key, { ...previous, fieldKey: field.key, value });
   }
   return [...byKey.values()];
 }

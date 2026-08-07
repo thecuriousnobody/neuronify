@@ -112,6 +112,10 @@ export default function ReportChat() {
   async function send(quick?: unknown) {
     const text = (typeof quick === 'string' ? quick : input).trim();
     if (!text || busy) return;
+    // Everything needed to put the conversation back exactly as it was if the
+    // turn never lands. A failed send must cost the resident nothing.
+    const priorMessages = messages;
+    const priorSuggested = suggested;
     setInput('');
     setError('');
     setSuggested([]); // stale chips must not outlive the question they answered
@@ -154,7 +158,14 @@ export default function ReportChat() {
         setGeoCandidates(data.geoCandidates);
     } catch (e: any) {
       setError(e.message);
-      setMessages(nextHistory);
+      // The turn did not happen. Roll the thread back so the unprocessed message
+      // can't be replayed as history next turn, restore the chips it cleared, and
+      // hand the resident their words back in the composer — a rate-limit trip
+      // used to silently eat a dictated sentence and force a full retype
+      // (Blake 1.4). Never clobber anything they typed while waiting.
+      setMessages(priorMessages);
+      setSuggested(priorSuggested);
+      setInput((current) => current || text);
     } finally {
       setBusy(false);
     }
@@ -232,14 +243,29 @@ export default function ReportChat() {
 
   function openReview() {
     const init: Record<string, string | boolean> = {};
+    const reasons: Record<string, string> = {};
     for (const f of form?.fields ?? []) {
       const v = draft.find((d) => d.fieldKey === f.key)?.value;
       if (f.type === 'boolean') init[f.key] = v === true;
       else if (v != null) init[f.key] = String(v);
+      // If they already explained in chat why they have no photo, carry that
+      // through instead of asking them to type it a second time.
+      if (f.type === 'attachment' && typeof v === 'string' && v.trim()) reasons[f.key] = v;
     }
     setEdited(init);
+    setNoPhotoReason((prior) => ({ ...reasons, ...prior }));
     setError('');
     setPhase('review');
+  }
+
+  // A reason for having no photo can arrive two ways: typed on the review screen,
+  // or simply said in the conversation (where it lands in the field's own draft
+  // value). Both are the resident telling us the same thing, so both count.
+  function skipReason(fieldKey: string): string {
+    const typed = noPhotoReason[fieldKey]?.trim();
+    if (typed) return typed;
+    const said = draft.find((d) => d.fieldKey === fieldKey)?.value;
+    return typeof said === 'string' ? said.trim() : '';
   }
 
   async function finish() {
@@ -249,7 +275,7 @@ export default function ReportChat() {
     // problem here rather than after a round trip. The server re-checks — this
     // is a courtesy, not the enforcement.
     const needsPhoto = (form?.fields ?? []).filter(
-      (f) => f.type === 'attachment' && f.required && !photos[f.key] && !noPhotoReason[f.key]?.trim(),
+      (f) => f.type === 'attachment' && f.required && !photos[f.key] && !skipReason(f.key),
     );
     if (needsPhoto.length) {
       setError(
@@ -272,7 +298,7 @@ export default function ReportChat() {
           out.attachmentIds = [photos[f.key]];
         } else {
           // No photo — the field's value is the resident's reason (or null).
-          out.value = noPhotoReason[f.key]?.trim() || null;
+          out.value = skipReason(f.key) || null;
         }
       }
       if (f.type === 'location' && geo?.fieldKey === f.key) {

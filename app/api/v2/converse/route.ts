@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
     req.headers.get('x-real-ip') ||
     'unknown';
-  const limit = rateLimit(ip);
+  const limit = rateLimit(ip, 'chat');
   if (!limit.ok) return Response.json({ error: limit.reason }, { status: 429 });
 
   let body: any;
@@ -61,32 +61,15 @@ export async function POST(req: Request) {
   const locked: CategoryKey | null = KNOWN_CATEGORIES.has(rawCat) ? (rawCat as CategoryKey) : null;
 
   const env = engineEnv();
-  try {
-    // ── Phase 1 — no category yet: discern it. ──
-    if (!locked) {
-      const t = await discernCategory(env.llm, TEMPLATE_FORM_CITY, history, message);
-      if (!t.category) {
-        // Still unclear — ask another question, stay in triage.
-        return Response.json({ phase: 'triage', reply: t.reply, category: null });
-      }
-      // Category just locked. The triage reply already asks for the first detail;
-      // the accumulated history carries the resident's initial description into
-      // the collection turns that follow, so nothing they've said is lost.
-      const form = formForCategory(t.category);
-      return Response.json({
-        phase: 'collecting',
-        reply: t.reply,
-        category: t.category,
-        department: departmentFor(TEMPLATE_FORM_CITY, t.category),
-        form: { key: form.key, title: form.title, fields: form.fields },
-        draft,
-        missing: form.fields.filter((f) => f.required).map((f) => f.key),
-        readyForReview: false,
-      });
-    }
 
-    // ── Phase 2 — category known: collect its fields. ──
-    const form = formForCategory(locked);
+  /**
+   * One collecting turn over a known category, plus the geocode that may fall
+   * out of it. Shared by both phases: the turn where the category LOCKS has to
+   * collect too, or the message that revealed the category is never mined for
+   * the facts it contained.
+   */
+  async function collect(category: CategoryKey) {
+    const form = formForCategory(category);
     const turn = await runIntakeTurn(env.llm, form, history, draft, message);
 
     // Resolve the location to a real address + GPS — but only when it just got
@@ -106,8 +89,8 @@ export async function POST(req: Request) {
     return Response.json({
       phase: 'collecting',
       reply: turn.reply,
-      category: locked,
-      department: departmentFor(TEMPLATE_FORM_CITY, locked),
+      category,
+      department: departmentFor(TEMPLATE_FORM_CITY, category),
       form: { key: form.key, title: form.title, fields: form.fields },
       draft: turn.draft,
       missing: turn.missing,
@@ -116,6 +99,29 @@ export async function POST(req: Request) {
       geo,
       geoCandidates,
     });
+  }
+
+  try {
+    // ── Phase 1 — no category yet: discern it. ──
+    if (!locked) {
+      const t = await discernCategory(env.llm, TEMPLATE_FORM_CITY, history, message);
+      if (!t.category) {
+        // Still unclear — ask another question, stay in triage.
+        return Response.json({ phase: 'triage', reply: t.reply, category: null });
+      }
+      // Category just locked — now COLLECT from the very message that revealed
+      // it. Residents lead with everything they know ("pothole at 4th and Main,
+      // in the traffic lane, dinner-plate size"); this used to return the triage
+      // reply and an empty draft, so all of it was thrown away and every field
+      // was asked again from scratch (Blake, 2026-08-07 — his worst finding).
+      // We drop the triage reply: the collecting turn can see which slots the
+      // opener already filled, so it asks for what's actually left, and the
+      // client renders the category itself as a "detected" card.
+      return await collect(t.category);
+    }
+
+    // ── Phase 2 — category known: collect its fields. ──
+    return await collect(locked);
   } catch (err) {
     return errorResponse(err);
   }

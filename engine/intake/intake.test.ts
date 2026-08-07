@@ -102,6 +102,108 @@ test('a question-free reply mid-collection gets the next missing field appended 
   assert.match(turn.reply, /Is it dangerous/i, 'asks the next missing required field');
 });
 
+// ── Blake's 2026-08-07 findings ──────────────────────────────────────────────
+
+test('a multi-fact opening message fills every slot it mentions in ONE turn (Blake 1.1)', async () => {
+  // Residents lead with everything they know. The engine must bank all of it on
+  // the spot; re-asking for what they already said was the worst thing Blake hit.
+  const llm = new ScriptedLLM([
+    JSON.stringify({
+      reply: 'Thanks — how bad would you say it is?',
+      extracted: { location: '4th and Main', hazard: 'yes', severity: 'major' },
+    }),
+  ]);
+  const turn = await runIntakeTurn(
+    llm,
+    form,
+    [],
+    [],
+    'huge pothole at 4th and Main, right in the traffic lane, people are swerving around it',
+  );
+
+  assert.equal(turn.draft.find((v) => v.fieldKey === 'location')?.value, '4th and Main');
+  assert.equal(turn.draft.find((v) => v.fieldKey === 'hazard')?.value, true);
+  assert.equal(turn.draft.find((v) => v.fieldKey === 'severity')?.value, 'major');
+  assert.deepEqual(turn.missing, ['photos'], 'nothing but the photo is left to ask for');
+  assert.equal(turn.readyForReview, true, 'a complete opener goes straight to review');
+});
+
+test('answering only one of two batched questions leaves the other slot missing (Blake §2)', async () => {
+  // Why batching is safe here: the draft is a slot set, not a script. A partial
+  // answer is not a lost answer — the empty slot is simply still empty.
+  const llm = new ScriptedLLM([
+    // The assistant asked for hazard AND severity; the resident answered hazard.
+    JSON.stringify({ reply: 'Got it. And how big is it?', extracted: { hazard: 'yes' } }),
+    JSON.stringify({ reply: 'Thanks.', extracted: { severity: 'minor' } }),
+  ]);
+  const first = await runIntakeTurn(llm, form, [], [{ fieldKey: 'location', value: '4th and Main' }], 'yes, dangerous');
+  assert.equal(first.draft.find((v) => v.fieldKey === 'hazard')?.value, true);
+  assert.equal(first.draft.find((v) => v.fieldKey === 'severity'), undefined, 'unanswered half stays empty');
+
+  const second = await runIntakeTurn(llm, form, [], first.draft, 'small one');
+  assert.equal(second.draft.find((v) => v.fieldKey === 'severity')?.value, 'minor', 're-asking recovers it');
+  assert.equal(second.draft.find((v) => v.fieldKey === 'hazard')?.value, true, 'the answered half survived');
+});
+
+test('a later, more specific answer overwrites the earlier one (Blake 4.5)', async () => {
+  const prior = [{ fieldKey: 'location', value: 'near the Riverfront Museum' }];
+  const llm = new ScriptedLLM([
+    JSON.stringify({ reply: 'Thanks, that helps. Is it dangerous?', extracted: { location: '222 SW Washington St' } }),
+  ]);
+  const turn = await runIntakeTurn(llm, form, [], prior, "actually it's right outside 222 SW Washington St");
+  assert.equal(
+    turn.draft.find((v) => v.fieldKey === 'location')?.value,
+    '222 SW Washington St',
+    'newest, most specific answer wins',
+  );
+  assert.equal(turn.draft.filter((v) => v.fieldKey === 'location').length, 1, 'one slot, not two');
+});
+
+test('re-extracting a value keeps the photo and geocode already attached to that slot', async () => {
+  // The model can restate a location string but cannot restate a resolved pin or
+  // an uploaded blob — clobbering the whole entry would silently drop both.
+  const prior = [
+    {
+      fieldKey: 'location',
+      value: 'Knoxville & Sheridan',
+      geo: { lat: 40.7, lon: -89.6, matched: 'N Knoxville Ave & W Sheridan Rd' },
+    },
+    { fieldKey: 'photos', value: null, attachmentIds: ['https://store.private.blob.vercel-storage.com/a.jpg'] },
+  ];
+  const llm = new ScriptedLLM([
+    JSON.stringify({ reply: 'Is it dangerous?', extracted: { location: 'Knoxville and Sheridan' } }),
+  ]);
+  const turn = await runIntakeTurn(llm, form, [], prior, 'Knoxville and Sheridan');
+
+  const loc = turn.draft.find((v) => v.fieldKey === 'location');
+  assert.equal(loc?.value, 'Knoxville and Sheridan', 'value updated');
+  assert.deepEqual(loc?.geo, { lat: 40.7, lon: -89.6, matched: 'N Knoxville Ave & W Sheridan Rd' }, 'geo survived');
+  assert.deepEqual(
+    turn.draft.find((v) => v.fieldKey === 'photos')?.attachmentIds,
+    ['https://store.private.blob.vercel-storage.com/a.jpg'],
+    'untouched slot keeps its attachment',
+  );
+});
+
+test('a "why no photo" reason given in chat fills the attachment slot (Blake 1.2)', async () => {
+  // The bot used to say "you can add it later" and nothing carried that anywhere.
+  // Now the reason itself is the slot value, so the crew sees why.
+  const prior = [
+    { fieldKey: 'location', value: '4th and Main' },
+    { fieldKey: 'hazard', value: true },
+  ];
+  const llm = new ScriptedLLM([
+    JSON.stringify({
+      reply: 'No problem at all — thanks for telling me.',
+      extracted: { photos: 'my phone camera is broken' },
+    }),
+  ]);
+  const turn = await runIntakeTurn(llm, form, [], prior, "I can't take a photo, my phone camera is broken");
+
+  assert.equal(turn.draft.find((v) => v.fieldKey === 'photos')?.value, 'my phone camera is broken');
+  assert.deepEqual(turn.missing, [], 'a recorded reason satisfies the photo requirement');
+});
+
 test('a genuine wrap-up when everything is gathered is left alone', async () => {
   const prior = [
     { fieldKey: 'location', value: 'Knoxville & Sheridan' },
