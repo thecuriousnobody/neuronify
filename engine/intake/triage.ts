@@ -8,7 +8,7 @@
 // never locks the conversation onto the wrong thing. (see ./taxonomy)
 
 import type { LLM } from '../ports';
-import type { ChatMessage } from './conversation';
+import { formatTranscript, type ChatMessage } from './conversation';
 import { parseLooseJSON } from './json';
 import { CATEGORIES, type CategoryKey } from './taxonomy';
 
@@ -57,9 +57,7 @@ export async function discernCategory(
   history: ChatMessage[],
   userMessage: string,
 ): Promise<TriageTurn> {
-  const transcript = history
-    .map((m) => `${m.role === 'user' ? 'Resident' : 'Assistant'}: ${m.text}`)
-    .join('\n');
+  const transcript = formatTranscript(history);
   const user = `Conversation so far:\n${transcript || '(none)'}\n\nResident just said: "${userMessage}"\n\nReturn the JSON.`;
 
   const raw = await llm.complete({ system: triageSystemPrompt(city), user, maxTokens: 400 });

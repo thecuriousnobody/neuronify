@@ -313,7 +313,15 @@ export default function ReportChat() {
       const res = await fetch('/api/v2/submit-anon', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ category, values, source: 'voice' }),
+        // The conversation rides along so it can be preserved into the record —
+        // the crew reads what the resident actually said, not just the fields we
+        // distilled out of it. 'detected' cards are UI, never conversation.
+        body: JSON.stringify({
+          category,
+          values,
+          source: 'voice',
+          history: messages.filter((m) => m.role !== 'detected').map((m) => ({ role: m.role, text: m.text })),
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || 'Could not file your report — please try again.');

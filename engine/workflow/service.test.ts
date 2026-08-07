@@ -154,3 +154,50 @@ test('acting on an unknown submission fails closed', async () => {
     (e: unknown) => e instanceof WorkflowError && e.code === 'INSTANCE_NOT_FOUND',
   );
 });
+
+// ── Transcript retention (Blake 1.5 / 4.4) ───────────────────────────────────
+// Chat filings used to reach the ledger with nothing but the distilled fields,
+// so every case opened reading "No intake transcript was preserved" and the
+// resident's actual words died with their browser tab. Retention is the default
+// now — see docs/transcript-retention.md for why that is not purely a product
+// call. These tests are about the ledger, which is the thing that must be able
+// to answer "what was the city told, and when" long after the fact.
+
+test('submitForm preserves the intake conversation into the ledger', async () => {
+  const { env, repo } = seeded();
+  const transcript = [
+    'Resident: TEST — huge pothole at 4th and Main, right in the traffic lane',
+    'Assistant: Thanks. Is it dangerous to drive over?',
+    'Resident: yes, it already bent my rim',
+  ].join('\n');
+
+  const { submissionId } = await submitForm(env, { ...submitInput, transcript });
+
+  const events = await repo.getEvents(submissionId);
+  const recorded = events.filter((e) => e.type === 'intake.recorded');
+  assert.equal(recorded.length, 1, 'exactly one intake.recorded event');
+  assert.equal((recorded[0].payload as any).transcript, transcript, 'stored verbatim');
+  assert.equal((recorded[0].payload as any).source, 'voice', 'the channel is recorded with it');
+  assert.equal(recorded[0].actorSide, 'external', 'these are the resident’s words, not the city’s');
+});
+
+test('the transcript survives on the desk view, not just in the log', async () => {
+  const { env } = seeded();
+  const transcript = 'Resident: TEST — the street light at Elm is out\nAssistant: Thanks, which corner?';
+  const { submissionId } = await submitForm(env, { ...submitInput, transcript });
+
+  const view = await getInstanceView(env, submissionId);
+  const recorded = view!.events.find((e) => e.type === 'intake.recorded');
+  assert.ok(recorded, 'reconstructable from the persisted log alone');
+  assert.equal((recorded!.payload as any).transcript, transcript);
+});
+
+test('a filing with no conversation records no transcript event at all', async () => {
+  // An empty string must not create an empty record — "no transcript" and
+  // "a transcript that says nothing" are different facts about a case.
+  const { env, repo } = seeded();
+  const { submissionId } = await submitForm(env, { ...submitInput, transcript: '   ' });
+
+  const events = await repo.getEvents(submissionId);
+  assert.equal(events.filter((e) => e.type === 'intake.recorded').length, 0);
+});

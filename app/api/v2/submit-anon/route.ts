@@ -26,7 +26,9 @@ import {
   departmentFlowKey,
   isAllowedAttachmentUrl,
   missingRequiredFields,
+  formatTranscript,
   TEMPLATE_FORM_CITY,
+  type ChatMessage,
   type FieldValue,
 } from '@/engine';
 import { configuredDepartments } from '@/lib/desk-auth';
@@ -40,6 +42,10 @@ export const dynamic = 'force-dynamic';
 /** Free-form text can't be unbounded — this is an anonymous, public endpoint. */
 const MAX_TEXT = 4000;
 const MAX_VALUES = 40;
+/** Transcript bounds. Generous enough for a real intake, bounded because this is
+ *  an anonymous endpoint and the value lands in an append-only ledger. */
+const MAX_TRANSCRIPT_TURNS = 60;
+const MAX_TRANSCRIPT_CHARS = 20_000;
 
 export async function POST(req: Request) {
   const ip =
@@ -64,6 +70,20 @@ export async function POST(req: Request) {
   const form = formForCategory(category);
 
   const source = body?.source === 'text' ? 'text' : 'voice';
+
+  // The conversation, preserved into the ledger. Formatted HERE from structured
+  // turns rather than accepting a client-composed blob, so what staff read is
+  // always the canonical shape and a caller can't dress arbitrary text up as the
+  // resident's words. Retained by default — see docs/transcript-retention.md.
+  const transcript = formatTranscript(
+    (Array.isArray(body?.history) ? body.history : [])
+      .slice(-MAX_TRANSCRIPT_TURNS)
+      .map((m: any): ChatMessage => ({
+        role: m?.role === 'assistant' ? 'assistant' : 'user',
+        text: String(m?.text ?? '').slice(0, MAX_TEXT),
+      })),
+  ).slice(0, MAX_TRANSCRIPT_CHARS);
+
   const rawValues = Array.isArray(body?.values) ? body.values.slice(0, MAX_VALUES) : [];
 
   const known = new Map(form.fields.map((f) => [f.key, f]));
@@ -155,6 +175,7 @@ export async function POST(req: Request) {
       city: city.db,
       source,
       values,
+      transcript,
       // The form is authored against the canonical owner; if that desk isn't
       // staffed, run the reachable department's flow instead.
       ...(reachable ? {} : { workflowKey: departmentFlowKey(department as any) }),

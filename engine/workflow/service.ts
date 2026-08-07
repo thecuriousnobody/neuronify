@@ -86,6 +86,13 @@ export async function submitForm(
      * department nobody can sign in to — see /api/v2/submit-anon.
      */
     workflowKey?: string;
+    /**
+     * The resident's intake conversation, preserved into the ledger as an
+     * `intake.recorded` event. Chat filings used to arrive with nothing here, so
+     * every case opened reading "No intake transcript was preserved" and the
+     * exchange died with the browser tab (Blake 1.5 / 4.4).
+     */
+    transcript?: string;
   },
 ): Promise<{ submissionId: string; instanceId: string }> {
   const form: FormDefinition | null = await env.repo.getFormDefinition(input.formKey, input.formVersion);
@@ -106,7 +113,7 @@ export async function submitForm(
   };
   await env.repo.saveSubmission(submission);
 
-  const result = startWorkflow(submission, def!, env);
+  const result = startWorkflow(submission, def!, env, { transcript: input.transcript });
   await commit(env, result);
   return { submissionId: submission.id, instanceId: result.instanceId };
 }

@@ -34,6 +34,20 @@ export interface IntakeTurn {
   suggestions: string[];
 }
 
+/**
+ * The conversation as plain text, one labelled line per turn.
+ *
+ * Used both to show the model what has been said and to preserve the exchange
+ * into the record. One formatter, so what staff read afterwards is exactly what
+ * the assistant was working from.
+ */
+export function formatTranscript(history: ChatMessage[]): string {
+  return history
+    .filter((m) => m && typeof m.text === 'string' && m.text.trim())
+    .map((m) => `${m.role === 'user' ? 'Resident' : 'Assistant'}: ${m.text.trim()}`)
+    .join('\n');
+}
+
 /** The LLM's suggestions are shown as buttons — keep them short, few, and clean. */
 function sanitizeSuggestions(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
@@ -107,9 +121,7 @@ export async function runIntakeTurn(
   priorDraft: FieldValue[],
   userMessage: string,
 ): Promise<IntakeTurn> {
-  const transcript = history
-    .map((m) => `${m.role === 'user' ? 'Resident' : 'Assistant'}: ${m.text}`)
-    .join('\n');
+  const transcript = formatTranscript(history);
   const known = JSON.stringify(Object.fromEntries(priorDraft.map((v) => [v.fieldKey, v.value])));
   const user = `Known values so far: ${known}\n\nConversation so far:\n${transcript || '(none)'}\n\nResident just said: "${userMessage}"\n\nReturn the JSON.`;
 
