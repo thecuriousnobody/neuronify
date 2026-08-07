@@ -443,6 +443,152 @@ URLs 404.
 
 ---
 
+## Phase E · Blake's 2026-08-07 review
+
+Everything in this phase is a fix for something Blake hit in a live run-through
+or flagged as a gap. Run E1 first — it is the one he called the most damaging.
+
+Automated coverage exists for the logic underneath each of these (133 unit
+tests); what these cases prove is the wiring, which no unit test in this repo can
+reach. See `docs/blake-response-2026-08-07.md` for the mapping.
+
+### E1 · The opening message is not thrown away
+
+**Do:** Start a fresh chat. As your FIRST message, say several things at once:
+`TEST — there's a big pothole at Knoxville and Frye, right in the traffic lane,
+about the size of a dinner plate`.
+
+**Expect:**
+- The category is detected (Pothole → Public Works) as before
+- The assistant does **not** ask where it is, how big it is, or which lane
+- It asks only for what you genuinely did not say, or goes straight to review
+
+**Fail if:** it asks you to repeat any fact from that first message. This is the
+regression that matters most in this phase.
+
+### E2 · Related questions may arrive two at a time
+
+**Do:** Continue E1 until it asks for something short (a yes/no or a choice).
+
+**Expect:**
+- At most TWO questions in one message, numbered, and only when both are
+  short-answer
+- Never a batched pair that includes an address or a free description
+- Answer only ONE of the two: the other must be asked again, not lost
+
+**Fail if:** three or more questions arrive at once, or answering one of two
+quietly drops the other.
+
+### E3 · The photo promise is honest
+
+**Do:** Reach a photo-required category (pothole). When asked for a photo, say
+`I can't take a photo`.
+
+**Expect:**
+- The assistant never says you can add one later, after filing, or "once it's
+  submitted" — there is no such mechanism
+- It asks briefly why not, and accepts the answer
+- Your reason appears already filled in on the review screen — you should not
+  have to type it a second time
+- After filing, the desk record reads `No photo — resident said: "…"`
+
+**Fail if:** it promises a later upload, or your reason does not reach the record.
+
+### E4 · Dictating then sending is not throttled, and nothing is ever eaten
+
+**Do:** On a phone: dictate a message with the mic, and hit send the instant
+dictation finishes. Repeat three times.
+
+**Expect:** no "Too fast — give it a second." Speech and chat are now separate
+buckets.
+
+**Then, to check the other half:** turn airplane mode on, type a sentence, hit
+send.
+
+**Expect:**
+- An error appears
+- Your typed sentence is **still in the composer**, ready to resend
+- The failed message is not left stranded in the thread
+
+**Fail if:** normal dictate-then-send is throttled, or any failure costs you your
+typed words. Losing input is the worse half of this bug.
+
+### E5 · Staff can open the photo
+
+**Do:** File a report with a photo (note the reference), then open it on the
+desk.
+
+**Expect:** the photo renders in the record as a thumbnail. Clicking it opens
+full size in a new tab. No "viewer coming soon" text anywhere.
+
+**Fail if:** a placeholder, a broken image, or a 401/404 in the network tab.
+
+### E6 · The resident can see their own photo
+
+**Do:** Open `/track/<reference>` for the report from E5.
+
+**Expect:** the photo renders. The row does not read `—`.
+
+**Fail if:** an em dash, or a broken image.
+
+### E7 · Staff see the resolved address, not just the words
+
+**Do:** On the desk record from E5, look at the location row.
+
+**Expect:** the resident's raw words, and beneath them the geocoded address
+(`Knoxville Ave & E Frye Ave`) plus coordinates, linked to a map.
+
+**Fail if:** only the raw words appear — that was the B3 partial from 2026-07-31.
+
+### E8 · No internal namespace on the staff side
+
+**Do:** Look at the desk queue, the case title, and the detail panel.
+
+**Expect:** `Pothole`, never `Intake Pothole`. Check the workflow title too.
+
+**Fail if:** `Intake ` appears anywhere a human reads.
+
+### E9 · The conversation is preserved
+
+**Do:** On the desk record from E5, open the **Chat & change log** tab.
+
+**Expect:** the full conversation, your words and the assistant's, in order.
+
+**Fail if:** "No intake transcript was preserved for this case."
+
+### E10 · The emergency hard stop
+
+**Do — it must STOP (four separate fresh chats):**
+1. `I smell gas near 4th and Main`
+2. `a tree came down and there are downed power lines across the road`
+3. `water main break on Sheridan`
+4. `someone is hurt, they fell into the excavation`
+
+**Expect:** each breaks the conversation immediately with a red interruption, a
+tappable **Call 911** link, and no further intake questions. The gas one must
+tell you to leave the area **before** it tells you to call. Tapping "I've done
+that" lets you carry on; the same warning does not fire again, but a different
+one still does.
+
+**Do — it must NOT stop (these are ordinary reports):**
+5. `the fire hydrant on my street is leaking`
+6. `someone parked in the fire lane again`
+7. `there is a downed tree branch blocking the sidewalk`
+8. `a tree is down but there are no downed wires`
+
+**Expect:** normal intake, no interruption.
+
+**Fail if:** any of 1–4 proceeds to a form question, or any of 5–8 is
+interrupted. Both directions are failures — a warning that fires on hydrants
+trains people to tap past the one that matters.
+
+**Note:** no utility phone numbers are configured yet, so the copy reads "the gas
+utility's emergency line" without a number. That is deliberate, not a bug — see
+`EMERGENCY_CONTACTS` in `engine/intake/emergency.ts`. Numbers must be filled in
+and dialled-checked before any pilot.
+
+---
+
 ## Results
 
 Fill this in and hand it back.
@@ -473,9 +619,19 @@ Fill this in and hand it back.
 | D6 | Desk renders both photo states | | |
 | D7 | Passcode eye toggle | | |
 | D8 | Old doors unlinked, still alive | | |
+| **E1** | **Opening message is not thrown away** | | |
+| E2 | Two related questions may batch | | |
+| E3 | Photo promise is honest | | |
+| **E4** | **Dictate→send not throttled; input never eaten** | | |
+| **E5** | **Staff can open the photo** | | ref: |
+| E6 | Resident can see their own photo | | |
+| E7 | Staff see the resolved address | | |
+| E8 | No internal namespace on the staff side | | |
+| E9 | Conversation is preserved on the case | | |
+| **E10** | **Emergency hard stop — both directions** | | |
 
-**Bold rows are the ones that have broken before.** If you run a short version,
-run those.
+**Bold rows are the ones that have broken before, or that are new and
+load-bearing.** If you run a short version, run those.
 
 ### Also report
 
