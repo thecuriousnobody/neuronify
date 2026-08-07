@@ -77,14 +77,14 @@ human types.
 "test": "node --import tsx --test $(find engine lib -name '*.test.ts')"
 ```
 
-**133 tests, 16 files, all green, ~0.4s.** (Memory said ~65; it was 84 before
+**143 tests, 16 files, all green, ~0.4s.** (Memory said ~65; it was 84 before
 today and stale.)
 
 | Area | Files | Tests |
 |---|---|---|
 | Intake conversation, prompt, triage, forms, taxonomy | 6 | 49 |
-| Attachments + blob URL validation | 1 | 24 |
-| Emergency hard stop | 1 | 13 |
+| Attachments + blob URL validation + signing gate | 1 | 28 |
+| Emergency hard stop | 1 | 18 |
 | Workflow engine (reducer, graph, service, revise, metrics) | 5 | 28 |
 | Geocoding | 1 | 9 |
 | Rate limiting | 1 | 8 |
@@ -153,9 +153,69 @@ parking sign is over and a power line is down" does.
 
 ---
 
+## What the adversarial review caught
+
+The whole branch was reviewed twice before hand-off — once for correctness, once
+as a security review of the new signed-read path. Both found real problems.
+Everything below was found and fixed on the branch, not shipped.
+
+**The two that mattered most, both in the new photo viewer:**
+
+- **The signing gate checked the host and not the pathname.** `submit-anon` is
+  anonymous and takes `attachmentIds` straight from the request body, so a caller
+  could name *any* object key in our store and then have the track page presign
+  it for them. The store's authorization had quietly become "do you know the
+  key". Now the read gate mirrors the upload route's own pathname allow-list, and
+  the same check runs at write time so nothing unservable is ever stored.
+- **A percent-encoded pathname could decode into an absolute URL.** The Blob SDK
+  short-circuits its own store-URL construction for anything starting `http://`
+  or `https://`, so `…/https%3A%2F%2Fevil.example%2Fx.png` would have produced a
+  signed URL pointing at someone else's host — an open redirect out of both the
+  desk image route and the resident's tracking page. Rejected explicitly, and
+  covered by the allow-list as well.
+
+**Two in the emergency detector, one in each direction:**
+
+- `\bshooting\b` fired 911 on *"the fire hydrant is shooting water into the
+  street"*. Exactly the noise failure the module's own header warns about. Gun
+  context is now required.
+- **Hedged reports were silently swallowed.** *"I'm not sure but I think I smell
+  gas"* produced no warning at all, because the negator scan ran through the
+  comma, found "not", and concluded the resident had ruled it out. Hedging is the
+  most common way people report a gas smell they aren't certain about. The scan
+  now stops at the nearest clause boundary.
+
+**And four in the chat client:**
+
+- Emergency card text was being submitted as the resident's own words. The
+  server maps every non-`assistant` role to "Resident:", so the append-only
+  transcript would have read *"Resident: Please stop and do this first…"* — our
+  911 copy attributed to the caller, in a record that by design can't be
+  corrected.
+- The input-restore fix still lost the message if the resident started typing
+  while the turn was in flight — Blake's own 1.4 bug, in a narrower window.
+- Deleting the pre-filled photo reason didn't delete it: the screen showed empty
+  and the payload carried the old text.
+- The acknowledge button could be clicked repeatedly, and clicking it mid-turn
+  got silently erased.
+
+**Accepted, not fixed:** a signed-in desk can read any case, including its photos
+and now its transcript, because `deskSubmissionDetail` uses `department` only to
+compute who may act, never to scope the lookup. This is pre-existing — the case
+detail endpoint already exposed the whole record — and the new route doesn't
+widen it. But the *impact* is now higher, since photos are the most sensitive
+payload in the system. Changing that is an authorization decision about which
+desks should see which cases (reassignment needs cross-department reads), so it
+is yours to make, not mine. It is the top item below.
+
 ## What still needs a human
 
-1. **Nothing is deployed.** Four commits sit on `fix/blake-feedback-2026-08-07`.
+0. **Decide desk scoping.** `deskSubmissionDetail` returns any case to any
+   signed-in desk. It now carries photos and transcripts. Either scope it to the
+   owning department (and work out what reassignment needs), or decide that all
+   desks seeing all cases is the intended model for a small town and write that
+   down. Right now it is neither — it is an accident that predates this branch.
+1. **Nothing is deployed.** Six commits sit on `fix/blake-feedback-2026-08-07`.
    Push → preview → run Phase E → ff-merge. Deploys are yours.
 2. **Phase E has never been run.** 10 cases in `e2e-browser-tests.md`. E1, E4,
    E5 and E10 are the load-bearing ones. E5/E6 file real reports into the shared
@@ -164,6 +224,10 @@ parking sign is over and a power line is down" does.
    code is new and the SDK path (`issueSignedToken` with `operations: ['get']` →
    `presignUrl`) has never run in this project. It fails closed to "unavailable"
    rather than a broken image, but E5 is the case that proves it works at all.
+   **Watch one thing specifically:** the new pathname allow-list assumes the
+   random suffix the store appends stays within `[A-Za-z0-9._-]`. If a real photo
+   renders "preview unavailable", that assumption is wrong and the character
+   class in `ATTACHMENT_PATHNAME_RE` needs widening — not the check removing.
 4. **Emergency contact numbers must be filled in and dialled** before any pilot.
 5. **Ask Blake to confirm (B)** — the photo skip-with-reason behaviour shipped
    2026-07-31 without his sign-off. His §1.2 implies he's fine with it *if the

@@ -29,9 +29,56 @@ export const dynamic = 'force-dynamic';
 
 const MAX_MSG = 2000;
 const MAX_HISTORY = 24;
+/** How much of an over-long message the emergency scan still reads. Bigger than
+ *  MAX_MSG on purpose: a message can be rejected for length and still be someone
+ *  describing a gas leak. */
+const MAX_SCAN = 8000;
 const KNOWN_CATEGORIES = new Set<string>(CATEGORIES.map((c) => c.key));
 
 export async function POST(req: Request) {
+  let body: any;
+  try {
+    body = await req.json();
+  } catch {
+    return Response.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+
+  const message = String(body?.message ?? '').trim();
+  // The client echoes the locked category back once triage has set it.
+  const rawCat = String(body?.category ?? '').trim().toLowerCase();
+  const locked: CategoryKey | null = KNOWN_CATEGORIES.has(rawCat) ? (rawCat as CategoryKey) : null;
+
+  // ── The hard stop. FIRST — ahead of the rate limit and the length cap. ──
+  // Not just ahead of the model: ahead of every way this endpoint can say no.
+  // Tapping a chip and then typing "I smell gas" lands inside the chat bucket's
+  // minimum gap, and a long dictated description of a gas leak exceeds the
+  // character cap — in both cases the resident would have received a scolding
+  // and no warning at all. A regex pass costs nothing, so nothing gets to come
+  // before it. The decision is also not one an assistant could weigh against
+  // being helpful, because the model is never consulted.
+  //
+  // The client echoes back which warnings it has already shown, so an
+  // acknowledged one doesn't wall them out of finishing the report afterwards.
+  const acknowledged: EmergencyKind[] = (Array.isArray(body?.acknowledgedEmergencies)
+    ? body.acknowledgedEmergencies
+    : []
+  ).filter((k: unknown): k is EmergencyKind =>
+    k === 'life_safety' || k === 'gas' || k === 'power' || k === 'water',
+  );
+  const emergency = detectEmergency(
+    message.slice(0, MAX_SCAN),
+    emergencyContactsFor(TEMPLATE_FORM_CITY),
+    acknowledged,
+  );
+  if (emergency) {
+    return Response.json({
+      phase: 'emergency',
+      reply: emergency.message,
+      emergency: { kind: emergency.kind, trigger: emergency.trigger },
+      category: locked,
+    });
+  }
+
   // Anonymous by design — no sign-in gate. Rate-limited per IP like the other
   // public endpoints.
   const ip =
@@ -41,14 +88,6 @@ export async function POST(req: Request) {
   const limit = rateLimit(ip, 'chat');
   if (!limit.ok) return Response.json({ error: limit.reason }, { status: 429 });
 
-  let body: any;
-  try {
-    body = await req.json();
-  } catch {
-    return Response.json({ error: 'Invalid JSON' }, { status: 400 });
-  }
-
-  const message = String(body?.message ?? '').trim();
   if (!message) return Response.json({ error: 'Tell me what’s going on first.' }, { status: 400 });
   if (message.length > MAX_MSG) return Response.json({ error: `Keep it under ${MAX_MSG} characters.` }, { status: 400 });
 
@@ -58,32 +97,6 @@ export async function POST(req: Request) {
   const draft: FieldValue[] = (Array.isArray(body?.draft) ? body.draft : [])
     .filter((v: any) => v && typeof v.fieldKey === 'string')
     .map((v: any) => ({ fieldKey: v.fieldKey, value: v.value ?? null }));
-
-  // The client echoes the locked category back once triage has set it.
-  const rawCat = String(body?.category ?? '').trim().toLowerCase();
-  const locked: CategoryKey | null = KNOWN_CATEGORIES.has(rawCat) ? (rawCat as CategoryKey) : null;
-
-  // ── The hard stop, before any model call. ──
-  // Deliberately ahead of triage, collection, and the geocoder: someone
-  // describing a gas leak must not be waiting on a token budget, and the
-  // decision must not be one an assistant can weigh against being helpful.
-  // The client echoes back which warnings it has already shown, so an
-  // acknowledged one doesn't wall them out of finishing the report afterwards.
-  const acknowledged: EmergencyKind[] = (Array.isArray(body?.acknowledgedEmergencies)
-    ? body.acknowledgedEmergencies
-    : []
-  ).filter((k: unknown): k is EmergencyKind =>
-    k === 'life_safety' || k === 'gas' || k === 'power' || k === 'water',
-  );
-  const emergency = detectEmergency(message, emergencyContactsFor(TEMPLATE_FORM_CITY), acknowledged);
-  if (emergency) {
-    return Response.json({
-      phase: 'emergency',
-      reply: emergency.message,
-      emergency: { kind: emergency.kind, trigger: emergency.trigger },
-      category: locked,
-    });
-  }
 
   const env = engineEnv();
 

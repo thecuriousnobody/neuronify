@@ -55,23 +55,55 @@ export function isAllowedAttachmentUrl(url: string, storeId?: string | null): bo
 }
 
 /**
- * The blob pathname an attachment URL points at, or null if the URL isn't one
- * of ours. Reading a private blob means presigning its pathname, and the only
- * record of that pathname is the stored URL — the uploader adds a random suffix,
- * so what was requested is not what was stored.
+ * The only object shape the resident path is allowed to write, and therefore the
+ * only shape it is allowed to read back. Mirrors PATHNAME_RE in
+ * /api/v2/upload — that route pins what may be PUT; this pins what may be
+ * signed for GET. Slightly longer than the upload cap because the store appends
+ * a random suffix to the name we asked for.
  *
- * Goes through `isAllowedAttachmentUrl` first, deliberately: this is the input to
- * a signing operation, and signing whatever URL a caller hands us is how a store
- * turns into someone else's file server.
+ * Keep the two in step. A read allow-list looser than the write allow-list means
+ * the store's authorization has quietly become "do you know the object key".
+ */
+const ATTACHMENT_PATHNAME_RE = /^reports\/[A-Za-z0-9._-]{1,180}\.(?:jpe?g|png|webp|heic|heif)$/i;
+
+/**
+ * The blob pathname an attachment URL points at, or null if we won't sign it.
+ * Reading a private blob means presigning its pathname, and the only record of
+ * that pathname is the stored URL.
+ *
+ * This is a SIGNING GATE, and it is strict in three ways on purpose:
+ *
+ *  - Host must be our store (`isAllowedAttachmentUrl`).
+ *  - Pathname must match what our own upload route is willing to write. Without
+ *    this, the host check alone let an anonymous caller name ANY key in the
+ *    store — /api/v2/submit-anon takes attachmentIds from the request body, so
+ *    the key that gets signed was attacker-chosen end to end.
+ *  - The decoded pathname must not itself be a URL. `%2F%2F` and friends decode
+ *    into `https://evil.example/x.png`, and the Blob SDK short-circuits its own
+ *    store-URL construction for anything starting `http://` or `https://` — so a
+ *    signed URL would point at someone else's host, turning both the desk
+ *    redirect and the resident's page into an open redirect.
  */
 export function attachmentPathname(url: string, storeId?: string | null): string | null {
   if (!isAllowedAttachmentUrl(url, storeId)) return null;
+  let pathname: string;
   try {
-    const pathname = decodeURIComponent(new URL(url).pathname).replace(/^\/+/, '');
-    return pathname || null;
+    pathname = decodeURIComponent(new URL(url).pathname).replace(/^\/+/, '');
   } catch {
     return null; // undecodable percent-escapes
   }
+  if (!pathname) return null;
+  // Belt and braces: the allow-list below already excludes these, but the SDK's
+  // behaviour here is surprising enough to reject explicitly rather than rely on
+  // a regex staying strict through future edits.
+  if (/^https?:\/\//i.test(pathname)) return null;
+  if (!ATTACHMENT_PATHNAME_RE.test(pathname)) return null;
+  return pathname;
+}
+
+/** True when a stored attachment URL is one we would both keep and serve. */
+export function isStorableAttachmentUrl(url: string, storeId?: string | null): boolean {
+  return attachmentPathname(url, storeId) !== null;
 }
 
 /**

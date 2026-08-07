@@ -77,7 +77,13 @@ const PATTERNS: { kind: EmergencyKind; re: RegExp }[] = [
   { kind: 'life_safety', re: /\b(?:house|building|car|brush|structure) fire\b/i },
   { kind: 'life_safety', re: /\b(?:building|house|structure) (?:is )?(?:on fire|collapsed|collapsing)\b/i },
   { kind: 'life_safety', re: /\bactive(?:ly)? flooding\b|\bflood(?:ing|water)s? (?:is |are )?(?:rising|in (?:the|my) (?:house|home|basement))\b/i },
-  { kind: 'life_safety', re: /\bgun ?(?:shot|fire)|\bshooting\b|\bstabbed\b/i },
+  // "shooting" on its own is a WATER word in this product — a hydrant, a
+  // sprinkler, a burst main all "shoot" water, and firing a 911 card at those
+  // is precisely the noise that teaches people to tap past the warning. Gun
+  // context has to be explicit.
+  { kind: 'life_safety', re: /\bgun ?(?:shot|shots|fire)\b|\bshots fired\b|\bactive shooter\b/i },
+  { kind: 'life_safety', re: /\b(?:a|the) shooting\b(?! +water)/i },
+  { kind: 'life_safety', re: /\b(?:someone|somebody|a (?:man|woman|child|kid|person)|he|she|they) (?:is |was |got )?(?:shot|stabbed)\b/i },
   { kind: 'life_safety', re: /\bmedical emergency\b|\bheart attack\b|\bnot breathing\b/i },
 ];
 
@@ -85,14 +91,31 @@ const PATTERNS: { kind: EmergencyKind; re: RegExp }[] = [
  * Negators that disarm a match.
  *
  * "There are no downed wires" and "I don't smell gas" are people ruling things
- * OUT, usually helpfully. Only a short window before the phrase counts, so
- * "no parking sign is down and a power line is down too" still stops.
+ * OUT, usually helpfully, and stopping them would be noise.
+ *
+ * But the window is cut at the nearest CLAUSE BOUNDARY first, and that detail is
+ * the whole safety of this function. Hedging is the most common way somebody
+ * reports a gas smell they aren't certain about — "I'm not sure, but I think I
+ * smell gas" — and a negator scan that runs straight through the comma finds
+ * "not", decides the resident ruled it out, and silently says nothing. The
+ * negator has to be in the SAME clause as the phrase it negates.
  */
 const NEGATORS = /\b(?:no|not|isn'?t|aren'?t|wasn'?t|weren'?t|don'?t|doesn'?t|didn'?t|never|without|nothing)\b/i;
-const NEGATION_WINDOW = 28; // characters before the match
+/** Ends a clause, so anything before it can't negate what comes after. */
+const CLAUSE_BREAK = /[,;:.!?]| \bbut\b | \band\b | \bthough\b | \bhowever\b /gi;
+const NEGATION_WINDOW = 28; // characters before the match, before clause-trimming
 
 function isNegated(text: string, matchIndex: number): boolean {
-  const before = text.slice(Math.max(0, matchIndex - NEGATION_WINDOW), matchIndex);
+  let before = text.slice(Math.max(0, matchIndex - NEGATION_WINDOW), matchIndex);
+
+  // Keep only the current clause.
+  let cut = -1;
+  CLAUSE_BREAK.lastIndex = 0;
+  for (let m = CLAUSE_BREAK.exec(before); m; m = CLAUSE_BREAK.exec(before)) {
+    cut = m.index + m[0].length;
+  }
+  if (cut >= 0) before = before.slice(cut);
+
   return NEGATORS.test(before);
 }
 

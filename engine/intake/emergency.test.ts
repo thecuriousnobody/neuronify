@@ -151,3 +151,56 @@ test('empty and junk input is not an emergency', () => {
   assert.equal(detectEmergency('   '), null);
   assert.equal(detectEmergency(undefined as any), null);
 });
+
+// ── Regressions from the 2026-08-07 adversarial review ───────────────────────
+
+test('"shooting" is a WATER word here and must not fire 911 on its own', () => {
+  // A hydrant, a sprinkler and a burst main all "shoot" water. A 911 card on
+  // those is the noise that teaches people to tap past the real one.
+  for (const text of [
+    'the fire hydrant is shooting water into the street',
+    'the sprinkler is shooting water across the sidewalk',
+    'kids were shooting hoops in the road and a sign got knocked over',
+    'there is water shooting out of the ground by the curb',
+  ]) {
+    assert.notEqual(detectEmergency(text)?.kind, 'life_safety', `must not read as a shooting: ${text}`);
+  }
+});
+
+test('a real shooting still stops the conversation', () => {
+  for (const text of [
+    'there was a shooting on my street',
+    'shots fired near the park',
+    'I heard gunshots outside',
+    'someone was shot at the corner',
+    'active shooter at the school',
+  ]) {
+    assert.equal(kindOf(text), 'life_safety', `should stop: ${text}`);
+  }
+});
+
+test('a negated water phrase cannot leak into a different pattern', () => {
+  // The loop moves on after a negated match; the danger is the NEXT pattern
+  // matching the same words with a clean negation window in front of it.
+  const m = detectEmergency('I never saw anything like it, water shooting out of the road');
+  assert.notEqual(m?.kind, 'life_safety', 'must not become a shooting report');
+});
+
+test('HEDGED reports are not silently swallowed', () => {
+  // The most common way somebody reports a gas smell they aren't sure about.
+  // A negator scan that runs through the comma finds "not", concludes they
+  // ruled it out, and says nothing at all. That is the miss direction, and the
+  // miss direction is the one that cannot be undone.
+  assert.equal(kindOf("I'm not sure but I think I smell gas"), 'gas');
+  assert.equal(kindOf("I'm not certain, but there's a gas leak smell near the meter"), 'gas');
+  assert.equal(kindOf('there is nothing I can do, the house fire is spreading'), 'life_safety');
+  assert.equal(kindOf('no one else is around and a power line is down'), 'power');
+  assert.equal(kindOf("I don't know if it matters, but someone is hurt"), 'life_safety');
+});
+
+test('genuine same-clause negation still suppresses', () => {
+  // The other direction must survive the clause-boundary fix.
+  assert.equal(kindOf('a tree is down but there are no downed wires'), null);
+  assert.equal(kindOf("I don't smell gas, just reporting the manhole cover"), null);
+  assert.equal(kindOf('nobody is hurt, the pothole just took out my tire'), null);
+});

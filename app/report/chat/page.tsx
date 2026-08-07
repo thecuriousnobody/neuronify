@@ -188,7 +188,11 @@ export default function ReportChat() {
       // (Blake 1.4). Never clobber anything they typed while waiting.
       setMessages(priorMessages);
       setSuggested(priorSuggested);
-      setInput((current) => current || text);
+      // Put their words back in front of anything they started typing while the
+      // turn was in flight — an LLM turn takes seconds, and `current || text`
+      // would have dropped the original message entirely the moment they began
+      // a second thought. Same merge the mic uses.
+      setInput((current) => (current ? `${text} ${current}` : text));
     } finally {
       setBusy(false);
     }
@@ -284,9 +288,14 @@ export default function ReportChat() {
   // A reason for having no photo can arrive two ways: typed on the review screen,
   // or simply said in the conversation (where it lands in the field's own draft
   // value). Both are the resident telling us the same thing, so both count.
+  //
+  // Once the review screen has seeded the box, that box is authoritative —
+  // presence of the KEY, not truthiness of its value. Falling back to the draft
+  // whenever the box was empty meant a resident who deleted the pre-filled
+  // reason still filed it: the screen showed one thing and the record kept
+  // another, with no way to retract.
   function skipReason(fieldKey: string): string {
-    const typed = noPhotoReason[fieldKey]?.trim();
-    if (typed) return typed;
+    if (fieldKey in noPhotoReason) return noPhotoReason[fieldKey].trim();
     const said = draft.find((d) => d.fieldKey === fieldKey)?.value;
     return typeof said === 'string' ? said.trim() : '';
   }
@@ -338,12 +347,19 @@ export default function ReportChat() {
         headers: { 'content-type': 'application/json' },
         // The conversation rides along so it can be preserved into the record —
         // the crew reads what the resident actually said, not just the fields we
-        // distilled out of it. 'detected' cards are UI, never conversation.
+        // distilled out of it.
+        //
+        // 'detected' and 'emergency' cards are the APP speaking, not the
+        // conversation. The server maps every non-'assistant' role to
+        // "Resident:", so letting an emergency card through would file our own
+        // 911 copy into an append-only ledger as the caller's words.
         body: JSON.stringify({
           category,
           values,
           source: 'voice',
-          history: messages.filter((m) => m.role !== 'detected').map((m) => ({ role: m.role, text: m.text })),
+          history: messages
+            .filter((m) => m.role !== 'detected' && m.role !== 'emergency')
+            .map((m) => ({ role: m.role, text: m.text })),
         }),
       });
       const data = await res.json();
@@ -618,24 +634,31 @@ export default function ReportChat() {
                   <a className={styles.emergencyCall} href="tel:911">
                     Call 911
                   </a>
-                  {i === messages.map((x) => x.role).lastIndexOf('emergency') && (
-                    <button
-                      type="button"
-                      className={styles.emergencyAck}
-                      onClick={() => {
-                        if (m.kind) setAckedEmergencies((prior) => (prior.includes(m.kind!) ? prior : [...prior, m.kind!]));
-                        setMessages((prev) => [
-                          ...prev,
-                          {
-                            role: 'assistant',
-                            text: 'Thanks for taking care of that first. Whenever you’re ready, tell me what you’d like to report to the city.',
-                          },
-                        ]);
-                      }}
-                    >
-                      I’ve done that — carry on with my report
-                    </button>
-                  )}
+                  {/* Only on the newest card, only until it's acknowledged, and
+                      never mid-turn: a response landing afterwards is built from
+                      a pre-flight snapshot and would erase the confirmation
+                      line, rewriting the thread under the resident. */}
+                  {i === messages.map((x) => x.role).lastIndexOf('emergency') &&
+                    !(m.kind && ackedEmergencies.includes(m.kind)) && (
+                      <button
+                        type="button"
+                        className={styles.emergencyAck}
+                        disabled={busy}
+                        onClick={() => {
+                          if (!m.kind || ackedEmergencies.includes(m.kind)) return;
+                          setAckedEmergencies((prior) => [...prior, m.kind!]);
+                          setMessages((prev) => [
+                            ...prev,
+                            {
+                              role: 'assistant',
+                              text: 'Thanks for taking care of that first. Whenever you’re ready, tell me what you’d like to report to the city.',
+                            },
+                          ]);
+                        }}
+                      >
+                        I’ve done that — carry on with my report
+                      </button>
+                    )}
                 </div>
               ) : (
                 <div key={i} className={`${styles.msg} ${m.role === 'user' ? styles.user : styles.assistant}`}>

@@ -8,6 +8,14 @@ import styles from './track.module.css';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// The reference number IS the capability for this page, and the page now renders
+// the resident's photos. A tracking link pasted into anything crawlable would
+// otherwise become an indexed page carrying someone's photo of their own street,
+// house or car.
+export const metadata = {
+  robots: { index: false, follow: false, nocache: true, googleBot: { index: false, follow: false } },
+};
+
 const WORKFLOW_LABEL: Record<WorkflowStatus, string> = {
   open: 'In progress',
   completed: 'Complete',

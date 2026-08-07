@@ -24,7 +24,7 @@ import {
   resolveCategory,
   departmentFor,
   departmentFlowKey,
-  isAllowedAttachmentUrl,
+  isStorableAttachmentUrl,
   missingRequiredFields,
   formatTranscript,
   TEMPLATE_FORM_CITY,
@@ -110,12 +110,17 @@ export async function POST(req: Request) {
     // rejection is a loud 400, never a silent drop: silently discarding the
     // photo here made a fully-attached report fail as "Still missing: A
     // photo", which is undiagnosable from the client's side.
+    //
+    // The check is isStorableAttachmentUrl, not just the host check: this
+    // endpoint is anonymous, and whatever URL it accepts here is a URL we will
+    // later PRESIGN for reading. Pinning the host alone let a caller name any
+    // object key in the store and then have us sign it for them.
     if (field.type === 'attachment') {
       const supplied: string[] = (Array.isArray(v.attachmentIds) ? v.attachmentIds : []).filter(
         (u: any): u is string => typeof u === 'string',
       );
       const urls = supplied
-        .filter((u) => isAllowedAttachmentUrl(u, process.env.BLOB_STORE_ID))
+        .filter((u) => isStorableAttachmentUrl(u, process.env.BLOB_STORE_ID))
         .slice(0, 5);
       if (supplied.length && !urls.length) {
         return Response.json(

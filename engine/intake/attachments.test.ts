@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { isAllowedAttachmentUrl, attachmentPathname } from './attachments';
+import { isAllowedAttachmentUrl, attachmentPathname, isStorableAttachmentUrl } from './attachments';
 
 // The exact URL shape @vercel/blob's client builds for our PRIVATE store:
 //   https://${storeId}.${access}.blob.vercel-storage.com/${pathname}
@@ -143,9 +143,17 @@ describe('attachmentPathname — the input to a signing operation', () => {
   });
 
   it('decodes percent-escapes so the store sees the real object key', () => {
+    // %2D is a hyphen — a character our upload route does write. A space (%20)
+    // is deliberately NOT decoded into an accepted key: the upload route can't
+    // write one, so a stored key containing one didn't come from us.
+    assert.equal(
+      attachmentPathname(`https://${STORE}.private.blob.vercel-storage.com/reports/my%2Dphoto.png`, STORE),
+      'reports/my-photo.png',
+    );
     assert.equal(
       attachmentPathname(`https://${STORE}.private.blob.vercel-storage.com/reports/my%20photo.png`, STORE),
-      'reports/my photo.png',
+      null,
+      'a key we could never have written is not signed',
     );
   });
 
@@ -170,5 +178,60 @@ describe('attachmentPathname — the input to a signing operation', () => {
 
   it('returns null for a store-root URL with no object', () => {
     assert.equal(attachmentPathname(`https://${STORE}.private.blob.vercel-storage.com/`, STORE), null);
+  });
+
+  // The host check alone is NOT enough. /api/v2/submit-anon is anonymous and
+  // takes attachmentIds straight from the request body, so without a pathname
+  // allow-list the object key we later presign is attacker-chosen end to end —
+  // the store's authorization collapses to "do you know the key".
+  it('refuses an object key our own upload route would never write', () => {
+    for (const key of [
+      'secret/backup.sql',
+      'reports/../secret.png',
+      'reports/note.txt',
+      'reports/photo.png.exe',
+      'invoices/2026-q1.pdf',
+    ]) {
+      assert.equal(
+        attachmentPathname(`https://${STORE}.private.blob.vercel-storage.com/${key}`, STORE),
+        null,
+        `must not sign ${key}`,
+      );
+    }
+  });
+
+  it('accepts the random suffix the store appends to our uploads', () => {
+    assert.equal(
+      attachmentPathname(`https://${STORE}.private.blob.vercel-storage.com/reports/pothole-x8f2-Ab3xY9.jpg`, STORE),
+      'reports/pothole-x8f2-Ab3xY9.jpg',
+    );
+  });
+
+  // A pathname that DECODES to an absolute URL makes the Blob SDK skip building
+  // a store URL and sign the attacker's host instead — an open redirect out of
+  // both the desk image route and the resident's own tracking page.
+  it('refuses a pathname that decodes into a URL', () => {
+    for (const smuggled of [
+      'https%3A%2F%2Fevil.example%2Fx.png',
+      'http%3A%2F%2Fevil.example%2Fx.png',
+      'reports/%2E%2E%2F%2E%2E%2Fhttps%3A%2F%2Fevil.example%2Fx.png',
+    ]) {
+      assert.equal(
+        attachmentPathname(`https://${STORE}.private.blob.vercel-storage.com/${smuggled}`, STORE),
+        null,
+        `must not sign ${smuggled}`,
+      );
+    }
+  });
+});
+
+describe('isStorableAttachmentUrl — the same gate, applied at write time', () => {
+  it('accepts what we would serve', () => {
+    assert.equal(isStorableAttachmentUrl(PRIVATE_URL, STORE), true);
+  });
+
+  it('refuses what we would refuse to serve, so nothing unservable is ever stored', () => {
+    assert.equal(isStorableAttachmentUrl(`https://${STORE}.private.blob.vercel-storage.com/secret/db.sql`, STORE), false);
+    assert.equal(isStorableAttachmentUrl('https://evilstore.private.blob.vercel-storage.com/reports/a.png', STORE), false);
   });
 });
