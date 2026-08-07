@@ -122,6 +122,67 @@
   border: 1px solid var(--line);
   border-bottom-left-radius: 4px;
 }
+/* The life-safety hard stop. Deliberately NOT in the assistant's voice or
+ * colours — this is the app interrupting, not the conversation continuing, and
+ * it should be impossible to skim past on a phone. */
+.emergency {
+  align-self: stretch;
+  max-width: 100%;
+  padding: 1rem 1.1rem;
+  border-radius: 14px;
+  border: 1px solid rgba(248, 113, 113, 0.55);
+  background: rgba(248, 113, 113, 0.1);
+  line-height: 1.55;
+}
+.emergencyHead {
+  font-size: 0.74rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #fca5a5;
+  margin-bottom: 0.5rem;
+}
+.emergencyBody {
+  margin: 0 0 0.6rem;
+  font-size: 0.95rem;
+}
+.emergencyBody:last-of-type {
+  margin-bottom: 0.8rem;
+}
+/* A real tel: link — on the device most residents are holding, this is one tap. */
+.emergencyCall {
+  display: inline-block;
+  padding: 0.6rem 1.1rem;
+  border-radius: 10px;
+  background: #dc2626;
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+}
+.emergencyAck {
+  display: block;
+  margin-top: 0.8rem;
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  opacity: 0.75;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .emergency {
+    animation: emergencyIn 240ms ease-out;
+  }
+}
+@keyframes emergencyIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
 /* The resident's own words pick up the cyan the rest of the page runs on,
  * tinted rather than solid so the thread stays calm. */
 .user {

@@ -21,7 +21,15 @@ type Field = { key: string; label: string; type: FieldType; required: boolean; c
 type Form = { key: string; title: string; fields: Field[] };
 // 'detected' is a system card, not chat text: the moment the agent works out
 // what kind of report this is and where it routes.
-type Msg = { role: 'user' | 'assistant' | 'detected'; text: string; dept?: string };
+// 'emergency' is the hard stop — a life-safety interruption that replaces the
+// next intake question instead of decorating it.
+type EmergencyKind = 'life_safety' | 'gas' | 'power' | 'water';
+type Msg = {
+  role: 'user' | 'assistant' | 'detected' | 'emergency';
+  text: string;
+  dept?: string;
+  kind?: EmergencyKind;
+};
 type CategoryOption = { key: string; label: string; department: string; form: Form };
 type Value = {
   fieldKey: string;
@@ -81,6 +89,10 @@ export default function ReportChat() {
   // The agent's own quick answers for its latest question (beats the schema
   // fallback — it matches whatever the agent actually asked).
   const [suggested, setSuggested] = useState<string[]>([]);
+  // Life-safety warnings this resident has already seen and dismissed. Echoed to
+  // the server so the same one can't wall them out of finishing their report,
+  // while a DIFFERENT danger still stops them.
+  const [ackedEmergencies, setAckedEmergencies] = useState<EmergencyKind[]>([]);
   // Alternate geocoder pins — the top one auto-pins; these let the resident
   // tap "not this spot?" instead of typing a correction.
   const [geoCandidates, setGeoCandidates] = useState<
@@ -129,13 +141,24 @@ export default function ReportChat() {
         // 'detected' cards are UI-only — never send them as conversation turns.
         body: JSON.stringify({
           message: text,
-          history: messages.filter((m) => m.role !== 'detected'),
+          history: messages.filter((m) => m.role !== 'detected' && m.role !== 'emergency'),
           draft,
           category,
+          acknowledgedEmergencies: ackedEmergencies,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || 'Something went wrong.');
+
+      // The hard stop replaces this turn entirely: no question, no chips, no
+      // progress toward filing. Their message stays in the thread — nothing they
+      // said is discarded — and they can carry on once they've acknowledged it.
+      if (data.phase === 'emergency') {
+        setMessages([...nextHistory, { role: 'emergency', text: data.reply, kind: data.emergency?.kind }]);
+        setSuggested([]);
+        return;
+      }
+
       // Surface the detection as its own visible moment the first time it lands.
       const justDetected = data.category && !category;
       setMessages([
@@ -579,6 +602,38 @@ export default function ReportChat() {
                       }}
                     >
                       Not right? Change it
+                    </button>
+                  )}
+                </div>
+              ) : m.role === 'emergency' ? (
+                // The hard stop. Loud on purpose, and it does not look like the
+                // assistant's ordinary voice — this is not part of filing.
+                <div key={i} className={styles.emergency} role="alert">
+                  <div className={styles.emergencyHead}>Please stop and read this</div>
+                  {m.text.split('\n\n').map((para, k) => (
+                    <p key={k} className={styles.emergencyBody}>
+                      {para}
+                    </p>
+                  ))}
+                  <a className={styles.emergencyCall} href="tel:911">
+                    Call 911
+                  </a>
+                  {i === messages.map((x) => x.role).lastIndexOf('emergency') && (
+                    <button
+                      type="button"
+                      className={styles.emergencyAck}
+                      onClick={() => {
+                        if (m.kind) setAckedEmergencies((prior) => (prior.includes(m.kind!) ? prior : [...prior, m.kind!]));
+                        setMessages((prev) => [
+                          ...prev,
+                          {
+                            role: 'assistant',
+                            text: 'Thanks for taking care of that first. Whenever you’re ready, tell me what you’d like to report to the city.',
+                          },
+                        ]);
+                      }}
+                    >
+                      I’ve done that — carry on with my report
                     </button>
                   )}
                 </div>

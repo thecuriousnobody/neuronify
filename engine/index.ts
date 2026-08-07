@@ -96,3 +96,5 @@ export { composeGraph } from './intake/compose';
 export type { ComposeOptions } from './intake/compose';
 export { isAllowedAttachmentUrl, attachmentPathname, missingRequiredFields } from './intake/attachments';
 export { prettyFormKey, prettyKey } from './intake/labels';
+export { detectEmergency, emergencyContactsFor, EMERGENCY_CONTACTS } from './intake/emergency';
+export type { EmergencyKind, EmergencyMatch, EmergencyContacts } from './intake/emergency';

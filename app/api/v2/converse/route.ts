@@ -13,9 +13,12 @@ import {
   departmentFor,
   CATEGORIES,
   TEMPLATE_FORM_CITY,
+  detectEmergency,
+  emergencyContactsFor,
   type ChatMessage,
   type FieldValue,
   type CategoryKey,
+  type EmergencyKind,
 } from '@/engine';
 import { rateLimit } from '@/lib/ratelimit';
 import { errorResponse } from '@/lib/engine/http';
@@ -59,6 +62,28 @@ export async function POST(req: Request) {
   // The client echoes the locked category back once triage has set it.
   const rawCat = String(body?.category ?? '').trim().toLowerCase();
   const locked: CategoryKey | null = KNOWN_CATEGORIES.has(rawCat) ? (rawCat as CategoryKey) : null;
+
+  // ── The hard stop, before any model call. ──
+  // Deliberately ahead of triage, collection, and the geocoder: someone
+  // describing a gas leak must not be waiting on a token budget, and the
+  // decision must not be one an assistant can weigh against being helpful.
+  // The client echoes back which warnings it has already shown, so an
+  // acknowledged one doesn't wall them out of finishing the report afterwards.
+  const acknowledged: EmergencyKind[] = (Array.isArray(body?.acknowledgedEmergencies)
+    ? body.acknowledgedEmergencies
+    : []
+  ).filter((k: unknown): k is EmergencyKind =>
+    k === 'life_safety' || k === 'gas' || k === 'power' || k === 'water',
+  );
+  const emergency = detectEmergency(message, emergencyContactsFor(TEMPLATE_FORM_CITY), acknowledged);
+  if (emergency) {
+    return Response.json({
+      phase: 'emergency',
+      reply: emergency.message,
+      emergency: { kind: emergency.kind, trigger: emergency.trigger },
+      category: locked,
+    });
+  }
 
   const env = engineEnv();
 
