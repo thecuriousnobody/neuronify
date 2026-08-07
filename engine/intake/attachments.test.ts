@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { isAllowedAttachmentUrl } from './attachments';
+import { isAllowedAttachmentUrl, attachmentPathname } from './attachments';
 
 // The exact URL shape @vercel/blob's client builds for our PRIVATE store:
 //   https://${storeId}.${access}.blob.vercel-storage.com/${pathname}
@@ -130,5 +130,45 @@ describe('missingRequiredFields — the photo escape hatch', () => {
   it('missing required text field is reported; optional fields never are', () => {
     const values = [{ fieldKey: 'photo', value: 'no camera' }, { fieldKey: 'hazard', value: true }];
     assert.deepEqual(missingRequiredFields(FIELDS, values as any), ['What’s going on?']);
+  });
+});
+
+// Reading a photo back means presigning its pathname. That makes this function a
+// signing gate: whatever it returns, we hand to the store and ask it to mint a
+// readable URL. So it goes through the allow-list first, and anything it can't
+// vouch for comes back null rather than "probably fine".
+describe('attachmentPathname — the input to a signing operation', () => {
+  it('extracts the pathname of a URL from our store', () => {
+    assert.equal(attachmentPathname(PRIVATE_URL, STORE), 'reports/pothole-x8f2.png');
+  });
+
+  it('decodes percent-escapes so the store sees the real object key', () => {
+    assert.equal(
+      attachmentPathname(`https://${STORE}.private.blob.vercel-storage.com/reports/my%20photo.png`, STORE),
+      'reports/my photo.png',
+    );
+  });
+
+  it('refuses a URL from somebody else’s store', () => {
+    assert.equal(
+      attachmentPathname('https://evilstore.private.blob.vercel-storage.com/reports/x.png', STORE),
+      null,
+      'signing this would read an attacker-chosen object',
+    );
+  });
+
+  it('refuses a lookalike host', () => {
+    assert.equal(attachmentPathname(`https://${STORE}.private.blob.vercel-storage.com.evil.tld/x.png`, STORE), null);
+    assert.equal(attachmentPathname(`http://${STORE}.private.blob.vercel-storage.com/x.png`, STORE), null, 'plain http');
+  });
+
+  it('refuses junk instead of throwing', () => {
+    for (const junk of ['', 'not a url', 'javascript:alert(1)', 'blob:http://localhost/abc']) {
+      assert.equal(attachmentPathname(junk, STORE), null, `${junk || '(empty)'} is not signable`);
+    }
+  });
+
+  it('returns null for a store-root URL with no object', () => {
+    assert.equal(attachmentPathname(`https://${STORE}.private.blob.vercel-storage.com/`, STORE), null);
   });
 });

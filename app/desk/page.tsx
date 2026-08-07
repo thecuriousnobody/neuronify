@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import styles from './desk.module.css';
+import { prettyFormKey, prettyKey } from '@/lib/labels';
 
 type Approval = { approver: string; status: string };
 type Item = {
@@ -28,7 +29,7 @@ type Case = {
   resolvedAt: string | null;
 };
 
-const pretty = (k: string) => k.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+const pretty = prettyKey;
 
 function humanize(ms: number): string {
   const m = Math.round(ms / 60000);
@@ -52,7 +53,7 @@ const STATUS_LABEL: Record<Case['status'], string> = {
 function headline(item: Item): string {
   // first non-empty text-ish value as the at-a-glance label
   const v = item.values.find((x) => typeof x.value === 'string' && x.value);
-  return v ? String(v.value) : pretty(item.formKey);
+  return v ? String(v.value) : prettyFormKey(item.formKey);
 }
 
 export default function DeskPage() {
@@ -138,7 +139,7 @@ export default function DeskPage() {
     const headers = ['Reference', 'Category', 'Status', 'Current reviewer', 'Age', 'Submitted', 'Resolved'];
     const rows = filtered.map((c) => [
       c.submissionId,
-      pretty(c.formKey),
+      prettyFormKey(c.formKey),
       STATUS_LABEL[c.status],
       c.currentReviewers.map(pretty).join('; ') || (c.status === 'open' ? '' : '—'),
       humanize(c.elapsedMs),
@@ -298,7 +299,7 @@ export default function DeskPage() {
             <a key={item.submissionId} className={styles.card} href={`/desk/${item.submissionId}`}>
               <div className={styles.cardTop}>
                 <span className={styles.cardTitle}>
-                  {pretty(item.formKey)} · {headline(item)}
+                  {prettyFormKey(item.formKey)} · {headline(item)}
                 </span>
                 <span className={styles.wait}>⏱ {humanize(item.waitingMs)}</span>
               </div>
@@ -363,7 +364,7 @@ export default function DeskPage() {
                         className={`${styles.trow} ${selected?.submissionId === c.submissionId ? styles.trowSel : ''}`}
                         onClick={() => setSelected(c)}
                       >
-                        <td>{pretty(c.formKey)}</td>
+                        <td>{prettyFormKey(c.formKey)}</td>
                         <td>
                           <span className={`${styles.pill} ${styles['pill_' + c.status]}`}>{STATUS_LABEL[c.status]}</span>
                         </td>
@@ -382,7 +383,7 @@ export default function DeskPage() {
           <aside className={styles.detailPane}>
             {selected ? (
               <>
-                <div className={styles.dpTitle}>{pretty(selected.formKey)}</div>
+                <div className={styles.dpTitle}>{prettyFormKey(selected.formKey)}</div>
                 <div className={styles.dpRef}>{selected.submissionId.slice(0, 8)}…</div>
                 <dl className={styles.dpGrid}>
                   <dt>Status</dt>

@@ -55,6 +55,26 @@ export function isAllowedAttachmentUrl(url: string, storeId?: string | null): bo
 }
 
 /**
+ * The blob pathname an attachment URL points at, or null if the URL isn't one
+ * of ours. Reading a private blob means presigning its pathname, and the only
+ * record of that pathname is the stored URL — the uploader adds a random suffix,
+ * so what was requested is not what was stored.
+ *
+ * Goes through `isAllowedAttachmentUrl` first, deliberately: this is the input to
+ * a signing operation, and signing whatever URL a caller hands us is how a store
+ * turns into someone else's file server.
+ */
+export function attachmentPathname(url: string, storeId?: string | null): string | null {
+  if (!isAllowedAttachmentUrl(url, storeId)) return null;
+  try {
+    const pathname = decodeURIComponent(new URL(url).pathname).replace(/^\/+/, '');
+    return pathname || null;
+  } catch {
+    return null; // undecodable percent-escapes
+  }
+}
+
+/**
  * Required-field check for a submission.
  *
  * An attachment field is satisfied by an attachment OR by a nonempty string

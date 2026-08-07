@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import styles from '../desk.module.css';
+import { prettyFormKey, prettyKey } from '@/lib/labels';
 
 type Field = { key: string; label: string; type: string };
 type Approval = { approver: string; status: string };
@@ -15,7 +16,12 @@ type Detail = {
   submittedAt: string;
   source: string;
   status: string;
-  values: { fieldKey: string; value: unknown; attachmentIds?: string[] }[];
+  values: {
+    fieldKey: string;
+    value: unknown;
+    attachmentIds?: string[];
+    geo?: { lat: number; lon: number; matched: string };
+  }[];
   fields: Field[];
   myScope: string[];
   myApprovalStatus: string | null;
@@ -28,7 +34,7 @@ type Detail = {
   intake: { transcript: string; source: string; at: string } | null;
 };
 
-const pretty = (k: string) => k.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+const pretty = prettyKey;
 
 const APPROVAL_LABEL: Record<string, string> = {
   pending: 'in review',
@@ -198,7 +204,7 @@ export default function DeskDetailPage() {
 
       <div className={styles.header}>
         <span className={styles.brand}>
-          {pretty(detail.formKey)} <span className={styles.city}>· {detail.submissionId.slice(0, 8)}…</span>
+          {prettyFormKey(detail.formKey)} <span className={styles.city}>· {detail.submissionId.slice(0, 8)}…</span>
         </span>
         <span className={styles.city}>
           {detail.city} · {detail.source} · submitted {fmtTime(detail.submittedAt)}
@@ -321,17 +327,59 @@ export default function DeskDetailPage() {
             {detail.fields.map((f) => {
               const fv = detail.values.find((x) => x.fieldKey === f.key);
               const v = fv?.value;
-              // Attachments: a photo exists (viewer not built yet), or the
-              // resident recorded why they couldn't provide one, or nothing.
-              const attachmentText = fv?.attachmentIds?.length
-                ? '(photo attached — viewer coming soon)'
-                : typeof v === 'string' && v
-                  ? `No photo — resident said: “${v}”`
-                  : '—';
+              const photos = fv?.attachmentIds ?? [];
               return (
                 <div key={f.key} className={`${styles.row} ${scope.has(f.key) ? styles.mine : ''}`}>
                   <span className={styles.rowKey}>{f.label}</span>
-                  <span className={styles.rowVal}>{f.type === 'attachment' ? attachmentText : fmtVal(v)}</span>
+                  <span className={styles.rowVal}>
+                    {f.type === 'attachment' ? (
+                      photos.length ? (
+                        // Each <img> loads through the desk's own route, which
+                        // presigns the private blob behind the sign-in cookie.
+                        <span className={styles.photos}>
+                          {photos.map((_, i) => (
+                            <a
+                              key={i}
+                              href={`/api/desk/attachment?submissionId=${encodeURIComponent(detail.submissionId)}&field=${encodeURIComponent(f.key)}&i=${i}`}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              <img
+                                className={styles.photo}
+                                src={`/api/desk/attachment?submissionId=${encodeURIComponent(detail.submissionId)}&field=${encodeURIComponent(f.key)}&i=${i}`}
+                                alt={`${f.label} from the resident${photos.length > 1 ? `, ${i + 1} of ${photos.length}` : ''}`}
+                              />
+                            </a>
+                          ))}
+                        </span>
+                      ) : typeof v === 'string' && v ? (
+                        `No photo — resident said: “${v}”`
+                      ) : (
+                        '—'
+                      )
+                    ) : (
+                      <>
+                        {fmtVal(v)}
+                        {/* The pin the resident confirmed. Staff were seeing only
+                            the words they typed, while the coordinates that drive
+                            the resident's own tracking page sat unread. */}
+                        {fv?.geo && (
+                          <span className={styles.resolved}>
+                            <a
+                              href={`https://www.google.com/maps/search/?api=1&query=${fv.geo.lat},${fv.geo.lon}`}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              {fv.geo.matched}
+                            </a>
+                            <span className={styles.coords}>
+                              {fv.geo.lat.toFixed(5)}, {fv.geo.lon.toFixed(5)}
+                            </span>
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </span>
                 </div>
               );
             })}

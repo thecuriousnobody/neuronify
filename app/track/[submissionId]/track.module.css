@@ -109,3 +109,16 @@
 }
 .recordKey { color: var(--muted, #8A93A6); flex-shrink: 0; }
 .recordVal { color: var(--text, #E8ECF3); text-align: right; }
+/* The resident's own photo, presigned for this page load. */
+.photos { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: flex-end; }
+.photo {
+  width: 132px;
+  height: 132px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  display: block;
+}
+.muted { color: var(--muted, #8A93A6); }
+/* The address we matched their words to, so they can see we got the right spot. */
+.resolved { display: block; color: var(--muted, #8A93A6); font-size: 0.85rem; margin-top: 0.15rem; }

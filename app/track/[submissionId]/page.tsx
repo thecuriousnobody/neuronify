@@ -1,6 +1,8 @@
 import { engineEnv } from '@/lib/engine';
 import { getInstanceView } from '@/engine';
 import type { ApprovalStatus, StepStatus, WorkflowStatus } from '@/engine';
+import { prettyFormKey, prettyKey } from '@/lib/labels';
+import { signedPhotoUrls } from '@/lib/blob-read';
 import styles from './track.module.css';
 
 export const runtime = 'nodejs';
@@ -36,15 +38,9 @@ function humanize(ms: number): string {
   return `${d}d ${h % 24}h`;
 }
 
-// Residents never see internal form keys: drop the `intake_` namespace and the
-// v1 `_report` suffix before prettifying, so `intake_noise_complaint` reads
-// "Noise Complaint", not "Intake Noise Complaint".
-const pretty = (k: string) =>
-  k
-    .replace(/^intake_/, '')
-    .replace(/_report$/, '')
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+// Residents never see internal form keys. This page had its own copy of the
+// namespace strip; it now shares the one the staff surfaces were missing.
+const pretty = prettyKey;
 
 export default async function TrackPage({ params }: { params: { submissionId: string } }) {
   const view = await getInstanceView(engineEnv(), params.submissionId);
@@ -64,9 +60,22 @@ export default async function TrackPage({ params }: { params: { submissionId: st
     year: 'numeric',
   });
 
+  // The resident's own photos, presigned for this page load. They could never
+  // see them before: the row just rendered an em dash, because a filed photo
+  // clears the field's value and nothing here read attachmentIds (Blake 1.3).
+  const photosByField = new Map<string, string[]>(
+    await Promise.all(
+      submission.values
+        .filter((v) => v.attachmentIds?.length)
+        .map(
+          async (v) => [v.fieldKey, await signedPhotoUrls(v.attachmentIds ?? [])] as [string, string[]],
+        ),
+    ),
+  );
+
   return (
     <main className={styles.wrap}>
-      <div className={styles.eyebrow}>{pretty(submission.formKey)}</div>
+      <div className={styles.eyebrow}>{prettyFormKey(submission.formKey)}</div>
       <div className={styles.status}>{WORKFLOW_LABEL[instance.status]}</div>
       <div className={styles.meta}>
         {submission.city} · submitted {submitted}
@@ -76,14 +85,39 @@ export default async function TrackPage({ params }: { params: { submissionId: st
       {submission.values.length > 0 && (
         <div className={styles.record}>
           <div className={styles.recordHead}>Your report</div>
-          {submission.values.map((v) => (
-            <div key={v.fieldKey} className={styles.recordRow}>
-              <span className={styles.recordKey}>{pretty(v.fieldKey)}</span>
-              <span className={styles.recordVal}>
-                {v.value === true ? 'Yes' : v.value === false ? 'No' : String(v.value ?? '—')}
-              </span>
-            </div>
-          ))}
+          {submission.values.map((v) => {
+            const photos = photosByField.get(v.fieldKey) ?? [];
+            const hadPhotos = Boolean(v.attachmentIds?.length);
+            return (
+              <div key={v.fieldKey} className={styles.recordRow}>
+                <span className={styles.recordKey}>{pretty(v.fieldKey)}</span>
+                <span className={styles.recordVal}>
+                  {hadPhotos ? (
+                    photos.length ? (
+                      <span className={styles.photos}>
+                        {photos.map((src, i) => (
+                          <a key={i} href={src} target="_blank" rel="noreferrer">
+                            <img className={styles.photo} src={src} alt={`Photo ${i + 1} you sent with this report`} />
+                          </a>
+                        ))}
+                      </span>
+                    ) : (
+                      // The photo is filed and staff can see it; only this
+                      // temporary link failed. Say so plainly.
+                      <span className={styles.muted}>Photo received — preview unavailable right now.</span>
+                    )
+                  ) : v.value === true ? (
+                    'Yes'
+                  ) : v.value === false ? (
+                    'No'
+                  ) : (
+                    String(v.value ?? '—')
+                  )}
+                  {v.geo && <span className={styles.resolved}>Located at {v.geo.matched}</span>}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
 

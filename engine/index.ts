@@ -93,4 +93,5 @@ export {
 export type { FlowOptions } from './intake/flows';
 export { composeGraph } from './intake/compose';
 export type { ComposeOptions } from './intake/compose';
-export { isAllowedAttachmentUrl, missingRequiredFields } from './intake/attachments';
+export { isAllowedAttachmentUrl, attachmentPathname, missingRequiredFields } from './intake/attachments';
+export { prettyFormKey, prettyKey } from './intake/labels';

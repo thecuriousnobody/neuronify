@@ -165,6 +165,37 @@
   border-left: 2px solid #f59e0b;
   padding-left: 0.6rem;
 }
+/* The resident's photo, served through /api/desk/attachment. Small enough to
+   scan in the record, click-through to full size in a new tab. */
+.photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.photo {
+  width: 148px;
+  height: 148px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #24384a;
+  background: #0d1b26;
+  display: block;
+}
+/* The geocoded address + pin under the words the resident actually typed. */
+.resolved {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.85rem;
+}
+.resolved a {
+  color: #7fc4f5;
+}
+.coords {
+  display: block;
+  color: #9fb3c6;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8rem;
+}
 .chip {
   display: inline-block;
   font-size: 0.78rem;

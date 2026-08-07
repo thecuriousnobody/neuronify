@@ -474,6 +474,11 @@ export function reviseAndResubmit(
     const from = existing?.value ?? null;
     if (from !== nv.value) {
       changes.push({ fieldKey: nv.fieldKey, from, to: nv.value });
+      // attachmentIds carry over (a re-typed caption doesn't unsend the photo)
+      // but `geo` deliberately does NOT: geo only ever attaches to a location
+      // field, so if that field is being rewritten the old pin now points at the
+      // wrong place. Better no pin than a confidently wrong one. Fields nobody
+      // revised keep everything — they're untouched above.
       byKey.set(nv.fieldKey, { fieldKey: nv.fieldKey, value: nv.value, ...(existing?.attachmentIds ? { attachmentIds: existing.attachmentIds } : {}) });
     }
   }

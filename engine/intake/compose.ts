@@ -12,6 +12,7 @@
 
 import type { WorkflowGraph } from '../domain/graph';
 import type { Classification } from './digest';
+import { prettyFormKey } from './labels';
 
 export interface ComposeOptions {
   /** The form this issue was filed on, e.g. "pothole_report". Names the flow. */
@@ -39,7 +40,9 @@ export function composeGraph(cls: Classification, opts: ComposeOptions): Workflo
   const reviewKey = 'departmental_review';
   return {
     key: `${opts.formKey}_flow`,
-    title: `${titleCase(opts.formKey.replace(/_/g, ' '))} — ${titleCase(dept)}`,
+    // prettyFormKey, not raw: this title is what staff read on the case, and the
+    // `intake_` storage namespace is not theirs to see.
+    title: `${prettyFormKey(opts.formKey)} — ${titleCase(dept)}`,
     version: 1,
     nodes: [
       { key: 'start', kind: 'start', title: 'Report starts', layout: { x: 24, y: 250 } },
