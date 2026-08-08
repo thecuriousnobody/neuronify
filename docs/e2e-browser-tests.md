@@ -589,6 +589,61 @@ and dialled-checked before any pilot.
 
 ---
 
+## Phase F · The map pin follows the address (`34b4529`, 2026-08-08)
+
+Background: the "Where is it?" field keeps the resident's own words **by
+design** — words are ground truth, the pin is an annotation. That is not a bug
+and should not be "fixed". What WAS broken: the pin floated at the top of the
+page looking unrelated, and editing the address never re-geocoded, so the record
+kept the original phrasing's coordinates while showing the new words.
+
+F1 and F2 were verified on localhost during the build; F1 re-confirmed on the
+preview. **F3 and F4 have never been run.**
+
+### F1 · The pin sits with the address it describes ✅ preview 2026-08-08
+
+**Do:** File to the review screen with location `Frye and Knoxville`.
+
+**Expect:** directly under the address field — 📍 *On the map as* **Knoxville
+Ave & E Frye Ave, Peoria, IL 61604** *— this is where the crew will go.* No
+floating pin line above the review card.
+
+**Fail if:** the pin appears as a page-level banner, or not at all.
+
+### F2 · Editing the address moves the pin
+
+**Do:** On the review screen change the address to `Main and Adams`, then click
+into another field (blur).
+
+**Expect:** the pin re-resolves to **SW Adams St & Main St, Peoria, IL 61602**.
+
+**Fail if:** it still reads Knoxville & Frye — that is the wrong-dispatch bug
+this phase exists for. The two corners are 1.6 miles apart.
+
+### F3 · An unplaceable phrase gets no pin, and says so
+
+**Do:** Change the address to `behind the big oak tree by the creek`, blur.
+
+**Expect:** ◎ *Couldn't pin this on the map — the crew will get your address
+exactly as written.* No pin.
+
+**Fail if:** it pins to `Peoria, IL` — that is the city centroid, a geocoder
+shrug dressed as a match (fixed by `isPinnablePlace`, never browser-verified).
+
+### F4 · The filed record agrees with the field — THE ONE THAT MATTERS
+
+**Do:** Edit the address to a *different corner from the one discussed in chat*,
+then Finish. Open the case on the desk (this is the E5/E7 record — reuse it).
+
+**Expect:** the desk's resolved address names **the corner the field said**, not
+the one from the conversation.
+
+**Fail if:** they name different streets. Nothing on either screen shows the
+contradiction — you can only catch it by comparing the two.
+
+**Note:** requires a real filing → shared prod DB → add the ref to the cleanup
+ledger.
+
 ## Results
 
 Fill this in and hand it back.
@@ -629,6 +684,10 @@ Fill this in and hand it back.
 | E8 | No internal namespace on the staff side | | |
 | E9 | Conversation is preserved on the case | | |
 | **E10** | **Emergency hard stop — both directions** | | |
+| **F1** | **Pin sits with the address** | ✅ preview 2026-08-08 | |
+| **F2** | **Editing the address moves the pin** | | |
+| F3 | Unplaceable phrase gets no pin | | |
+| **F4** | **Filed record agrees with the field** | | ref: |
 
 **Bold rows are the ones that have broken before, or that are new and
 load-bearing.** If you run a short version, run those.
