@@ -115,13 +115,20 @@ export async function POST(req: Request) {
     const locField = form.fields.find((f) => f.type === 'location');
     const newLoc = locField ? turn.draft.find((v) => v.fieldKey === locField.key)?.value : null;
     const priorLoc = locField ? draft.find((v) => v.fieldKey === locField.key)?.value : null;
-    let geo: { fieldKey: string; matched: string; lat: number; lon: number } | null = null;
+    let geo:
+      | { fieldKey: string; matched: string; lat: number; lon: number; for: string }
+      | null = null;
     let geoCandidates: { matched: string; lat: number; lon: number }[] = [];
     if (locField && newLoc && newLoc !== priorLoc) {
       // Top candidate auto-pins (zero friction); the rest ride along so the
       // resident can tap "not this spot?" instead of typing corrections.
       geoCandidates = await geocodeCandidates(String(newLoc), TEMPLATE_FORM_CITY);
-      if (geoCandidates[0]) geo = { fieldKey: locField.key, ...geoCandidates[0] };
+      // `for` is the text this pin was resolved FROM. The resident can still
+      // edit that text on the review screen, and a pin that no longer matches
+      // what the field says must not be shown or filed — see
+      // lib/location-text.ts.
+      if (geoCandidates[0])
+        geo = { fieldKey: locField.key, ...geoCandidates[0], for: String(newLoc) };
     }
 
     return Response.json({

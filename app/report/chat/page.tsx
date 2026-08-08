@@ -15,6 +15,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import styles from './chat.module.css';
+import { pinStillApplies } from '@/lib/location-text';
 
 type FieldType = 'text' | 'longtext' | 'number' | 'boolean' | 'choice' | 'location' | 'date' | 'attachment';
 type Field = { key: string; label: string; type: FieldType; required: boolean; choices?: string[]; prompt?: string };
@@ -77,7 +78,12 @@ export default function ReportChat() {
   const [error, setError] = useState('');
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
-  const [geo, setGeo] = useState<{ fieldKey: string; matched: string; lat: number; lon: number } | null>(null);
+  // `for` is the location text this pin was resolved FROM. It is not decoration:
+  // the review screen lets the resident edit that text, and a pin that no longer
+  // matches what the field says is a wrong pin, not a stale one.
+  const [geo, setGeo] = useState<
+    { fieldKey: string; matched: string; lat: number; lon: number; for: string } | null
+  >(null);
   // `photos` holds the stored Blob URL (what a submission will record);
   // `photoPreviews` holds a local object URL, because the Blob store is private
   // and its URLs need a signed request — we already have the file in hand.
@@ -98,6 +104,8 @@ export default function ReportChat() {
   const [geoCandidates, setGeoCandidates] = useState<
     { matched: string; lat: number; lon: number }[]
   >([]);
+  // A re-pin is in flight for an address edited on the review screen.
+  const [repinning, setRepinning] = useState(false);
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [allCategories, setAllCategories] = useState<CategoryOption[] | null>(null);
   const [picking, setPicking] = useState(false);
@@ -106,6 +114,14 @@ export default function ReportChat() {
   const [tracking, setTracking] = useState('');
 
   const threadRef = useRef<HTMLDivElement>(null);
+  // The re-pin a blur kicked off, if one is still in the air — see repinLocation.
+  const repinRef = useRef<Promise<{
+    fieldKey: string;
+    matched: string;
+    lat: number;
+    lon: number;
+    for: string;
+  } | null> | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -268,6 +284,75 @@ export default function ReportChat() {
     }
   }
 
+  // The conversation geocodes as a side effect of each turn (see
+  // /api/v2/converse) — but an address edited on the REVIEW screen reaches no
+  // turn at all. Without this, correcting the address changed the words on the
+  // record and left the map pin exactly where the original phrasing had put it.
+  //
+  // Returns the pin that now applies (or null) rather than relying on the state
+  // it sets, so finish() can act on the answer without racing a re-render.
+  type Pin = { fieldKey: string; matched: string; lat: number; lon: number; for: string };
+
+  /** Hands finish() the re-pin a blur already started, instead of letting it
+   *  fire a competing second lookup — which the geocode rate limiter would
+   *  reject, throwing away a perfectly good pin because the resident clicked
+   *  Finish quickly. */
+  function repinLocation(fieldKey: string, text: string): Promise<Pin | null> {
+    const p = runRepin(fieldKey, text);
+    repinRef.current = p;
+    p.finally(() => {
+      if (repinRef.current === p) repinRef.current = null;
+    }).catch(() => {});
+    return p;
+  }
+
+  async function runRepin(fieldKey: string, text: string): Promise<Pin | null> {
+    const location = text.trim();
+    if (!location) {
+      setGeo(null);
+      setGeoCandidates([]);
+      return null;
+    }
+    setRepinning(true);
+    try {
+      const res = await fetch('/api/v2/geocode', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ location }),
+      });
+      const data = await res.json();
+      const candidates: { matched: string; lat: number; lon: number }[] = Array.isArray(
+        data?.candidates,
+      )
+        ? data.candidates
+        : [];
+      const next: Pin | null = candidates[0] ? { fieldKey, ...candidates[0], for: location } : null;
+      setGeo(next);
+      setGeoCandidates(candidates);
+      return next;
+    } catch {
+      // Fail-soft, and fail-closed on the pin: no pin beats a wrong pin. The
+      // report still files on the resident's own words, which is what the crew
+      // reads anyway.
+      setGeo(null);
+      setGeoCandidates([]);
+      return null;
+    } finally {
+      setRepinning(false);
+    }
+  }
+
+  /** The pin currently on screen, but only if it still describes what the
+   *  location field says. Anything else is a pin for a different address. */
+  function livePin(): Pin | null {
+    if (!geo) return null;
+    const text = edited[geo.fieldKey];
+    // In chat there is nothing to contradict it — `edited` is only populated
+    // once the review screen opens.
+    if (phase !== 'review') return geo;
+    return pinStillApplies(geo.for, typeof text === 'string' ? text : '') ? geo : null;
+  }
+
   function openReview() {
     const init: Record<string, string | boolean> = {};
     const reasons: Record<string, string> = {};
@@ -316,6 +401,25 @@ export default function ReportChat() {
       return;
     }
 
+    setSubmitting(true);
+    setError('');
+
+    // A pin ships only with the words it was resolved from. If the resident
+    // edited the address on this screen — or edited it and hit Finish before the
+    // field lost focus — re-pin now. Filing the old coordinates under new text
+    // sends a crew to the wrong corner, and no screen would have contradicted
+    // it. If the re-pin finds nothing, the report files on their words alone.
+    const locField = (form?.fields ?? []).find((f) => f.type === 'location');
+    // A blur-triggered re-pin may still be in the air. Its result is the current
+    // pin — and `geo` in this closure is the value from before it resolved, so
+    // the awaited answer has to win.
+    let pin = repinRef.current ? await repinRef.current : geo;
+    if (locField) {
+      const text = typeof edited[locField.key] === 'string' ? (edited[locField.key] as string) : '';
+      const resolvedFrom = pin?.fieldKey === locField.key ? pin.for : null;
+      if (!pinStillApplies(resolvedFrom, text)) pin = await repinLocation(locField.key, text);
+    }
+
     const values: Value[] = (form?.fields ?? []).map((f) => {
       const raw = edited[f.key];
       let value: string | number | boolean | null = raw ?? null;
@@ -333,14 +437,14 @@ export default function ReportChat() {
           out.value = skipReason(f.key) || null;
         }
       }
-      if (f.type === 'location' && geo?.fieldKey === f.key) {
-        out.geo = { lat: geo.lat, lon: geo.lon, matched: geo.matched };
+      // Belt and braces: `pin` was just reconciled above, but this is the last
+      // line before coordinates become part of an append-only record.
+      if (f.type === 'location' && pin?.fieldKey === f.key && pinStillApplies(pin.for, String(raw ?? ''))) {
+        out.geo = { lat: pin.lat, lon: pin.lon, matched: pin.matched };
       }
       return out;
     });
 
-    setSubmitting(true);
-    setError('');
     try {
       const res = await fetch('/api/v2/submit-anon', {
         method: 'POST',
@@ -530,7 +634,11 @@ export default function ReportChat() {
         </div>
       )}
 
-      {geo && (
+      {/* In review the pin is rendered under the address field itself, not up
+          here. Floating above the card it read as an unrelated page header —
+          the field showed the resident's words, the banner showed an address,
+          and nothing said the two were about each other. */}
+      {phase !== 'review' && geo && (
         <div
           style={{
             margin: '0.4rem 0 0.2rem',
@@ -546,7 +654,7 @@ export default function ReportChat() {
           <span>Location found: <strong>{geo.matched}</strong></span>
         </div>
       )}
-      {geo && geoCandidates.length > 1 && (
+      {phase !== 'review' && geo && geoCandidates.length > 1 && (
         <div
           style={{
             display: 'flex',
@@ -565,7 +673,9 @@ export default function ReportChat() {
               <button
                 key={c.matched}
                 type="button"
-                onClick={() => setGeo({ fieldKey: geo.fieldKey, ...c })}
+                // Same query, different result — the text this pin was resolved
+                // from is unchanged, so it still applies to the same address.
+                onClick={() => setGeo({ fieldKey: geo.fieldKey, ...c, for: geo.for })}
                 className={styles.secondary}
                 style={{ fontSize: '0.75rem', padding: '0.25rem 0.55rem' }}
               >
@@ -755,7 +865,15 @@ export default function ReportChat() {
         <div className={styles.reviewCard}>
           <div className={styles.reviewHead}>Review your report</div>
           <div className={styles.reviewSub}>Edit anything that isn’t right, then finish.</div>
-          {form.fields.map((f) => (
+          {form.fields.map((f) => {
+            // Only the pin that still describes what this field says. A pin for
+            // the address they just edited away is not shown at all.
+            const pin = f.type === 'location' ? livePin() : null;
+            const locText =
+              f.type === 'location' && typeof edited[f.key] === 'string'
+                ? (edited[f.key] as string).trim()
+                : '';
+            return (
             <div key={f.key} className={styles.field}>
               <label className={styles.label}>
                 {f.label} {f.required && <span className={styles.req}>*</span>}
@@ -837,6 +955,76 @@ export default function ReportChat() {
                   value={(edited[f.key] as string) ?? ''}
                   onChange={(e) => setEdited({ ...edited, [f.key]: e.target.value })}
                 />
+              ) : f.type === 'location' ? (
+                // The field keeps the resident's own words — they are the ground
+                // truth, and a formatted postal string is harder to check at a
+                // glance than the corner you named. What the geocoder made of
+                // them sits directly underneath, where it can be compared.
+                <div>
+                  <input
+                    className={styles.fieldInput}
+                    value={(edited[f.key] as string) ?? ''}
+                    onChange={(e) => setEdited({ ...edited, [f.key]: e.target.value })}
+                    onBlur={(e) => {
+                      // Re-pin the moment they leave the field, so a correction
+                      // shows its new pin here rather than surfacing as a
+                      // surprise on the filed record. finish() re-checks anyway
+                      // for anyone who edits and hits Finish in one motion.
+                      const text = e.target.value;
+                      const resolvedFrom = geo?.fieldKey === f.key ? geo.for : null;
+                      if (!pinStillApplies(resolvedFrom, text)) void repinLocation(f.key, text);
+                    }}
+                  />
+                  {repinning ? (
+                    <div className={styles.pinNote}>
+                      <span className={styles.pinMark}>◍</span>
+                      <span>Checking the map…</span>
+                    </div>
+                  ) : pin ? (
+                    <>
+                      <div
+                        className={styles.pinNote}
+                        title={`${pin.lat.toFixed(5)}, ${pin.lon.toFixed(5)}`}
+                      >
+                        <span className={styles.pinMark}>📍</span>
+                        {/* One flex child, or the sentence breaks into columns. */}
+                        <span>
+                          On the map as <strong>{pin.matched.replace(/, USA$/, '')}</strong> — this
+                          is where the crew will go.
+                        </span>
+                      </div>
+                      {geoCandidates.length > 1 && (
+                        <div className={styles.pinAlts}>
+                          <span className={styles.pinAltsLabel}>Not this spot?</span>
+                          {geoCandidates
+                            .filter((c) => c.matched !== pin.matched)
+                            .map((c) => (
+                              <button
+                                key={c.matched}
+                                type="button"
+                                className={styles.pinAlt}
+                                // Same query, different result — the text the
+                                // pin was resolved from hasn't changed.
+                                onClick={() => setGeo({ fieldKey: f.key, ...c, for: pin.for })}
+                              >
+                                {c.matched.replace(/, USA$/, '')}
+                              </button>
+                            ))}
+                        </div>
+                      )}
+                    </>
+                  ) : locText ? (
+                    // Honest about the gap rather than silent: the report still
+                    // files, the crew just gets the address as written.
+                    <div className={styles.pinNote}>
+                      <span className={styles.pinMark}>◎</span>
+                      <span>
+                        Couldn’t pin this on the map — the crew will get your address exactly as
+                        written. A street or cross-street helps.
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
               ) : (
                 <input
                   className={styles.fieldInput}
@@ -845,7 +1033,8 @@ export default function ReportChat() {
                 />
               )}
             </div>
-          ))}
+            );
+          })}
           {error && <div className={styles.error}>{error}</div>}
           <div className={styles.actions}>
             <button

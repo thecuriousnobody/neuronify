@@ -9,7 +9,14 @@
 // that cost a model call or a real database write deserve a tighter leash than
 // ordinary conversation; they no longer share one.
 
-export type RateLimitBucket = 'chat' | 'voice' | 'upload' | 'submit' | 'desk' | 'default';
+export type RateLimitBucket =
+  | 'chat'
+  | 'voice'
+  | 'geocode'
+  | 'upload'
+  | 'submit'
+  | 'desk'
+  | 'default';
 
 interface Policy {
   windowMs: number;
@@ -24,6 +31,11 @@ const POLICIES: Record<RateLimitBucket, Policy> = {
   chat: { windowMs: 60_000, maxPerWindow: 40, minGapMs: 400 },
   // Speech-to-text. Independent of chat: dictating then sending is one motion.
   voice: { windowMs: 60_000, maxPerWindow: 30, minGapMs: 500 },
+  // Re-pinning an address the resident edited on the review screen. Its own
+  // bucket for the same reason voice has one: correcting the address and then
+  // sending a chat message is one motion, and a shared counter would scold them
+  // for it. Costs a geocoder call, not a model call — a loose leash is fine.
+  geocode: { windowMs: 60_000, maxPerWindow: 30, minGapMs: 400 },
   // A resident may legitimately attach several photos in a row.
   upload: { windowMs: 60_000, maxPerWindow: 20, minGapMs: 500 },
   // Filing writes a real, permanent record. Keep this strict.

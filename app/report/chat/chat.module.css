@@ -297,6 +297,39 @@
 .fieldSelect:focus { outline: none; border-color: rgba(56, 189, 248, 0.5); }
 .attachNote { font-size: 0.78rem; color: var(--muted-2); font-style: italic; }
 
+/* What the geocoder made of the address, shown under the address itself —
+   close enough that the two can be read against each other. */
+.pinNote {
+  display: flex;
+  gap: 0.4rem;
+  align-items: baseline;
+  margin-top: 0.4rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.pinNote strong { color: var(--text); font-weight: 600; }
+.pinMark { flex: none; }
+.pinAlts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+.pinAltsLabel { font-size: 0.75rem; color: var(--muted-2); }
+.pinAlt {
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.25rem 0.55rem;
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.pinAlt:hover { border-color: rgba(56, 189, 248, 0.5); }
+
 .error {
   margin: 0.7rem 0;
   color: #fca5a5;

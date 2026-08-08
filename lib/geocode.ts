@@ -51,6 +51,32 @@ export function matchInCity(formattedAddress: string, city: string): boolean {
  * back to the free Census geocoder. Fail-soft: any error / non-match → null and
  * the UI just shows the resident's own words.
  */
+/** Google place types that describe an AREA, not a spot. A phrase the geocoder
+ *  can't place ("behind the big oak tree by the creek") falls back to the
+ *  locality — which resolves to the city centroid and looks exactly like a
+ *  successful match. Pinning that is worse than not pinning at all: it tells a
+ *  crew "here" while carrying no more information than the city name we already
+ *  anchored the query with. Denylist rather than allowlist so an unusual but
+ *  genuine place type (a park, a bridge, an establishment) still pins. */
+const AREA_TYPES = new Set([
+  'locality',
+  'sublocality',
+  'sublocality_level_1',
+  'neighborhood',
+  'postal_code',
+  'postal_code_prefix',
+  'administrative_area_level_1',
+  'administrative_area_level_2',
+  'administrative_area_level_3',
+  'country',
+]);
+
+/** Is this result a place a crew could drive to, rather than a region? */
+export function isPinnablePlace(types: string[] | undefined): boolean {
+  if (!types || types.length === 0) return true; // unknown shape — don't over-reject
+  return !types.some((t) => AREA_TYPES.has(t));
+}
+
 /** In-city, deduped, capped — the shape both providers' raw results reduce to.
  *  Order is preserved (providers rank by confidence). */
 export function pickCandidates(matches: GeoMatch[], city: string, max = 4): GeoMatch[] {
@@ -120,6 +146,11 @@ async function geocodeGoogle(address: string): Promise<GeoMatch[]> {
         const loc = m?.geometry?.location;
         if (!m?.formatted_address || typeof loc?.lat !== 'number' || typeof loc?.lng !== 'number')
           return null;
+        // A city/ZIP centroid is the geocoder shrugging, not a location.
+        if (!isPinnablePlace(m?.types)) {
+          console.warn(`[geocode] area-level match dropped: "${m.formatted_address}" (${(m.types ?? []).join(',')})`);
+          return null;
+        }
         return { matched: m.formatted_address, lat: loc.lat, lon: loc.lng } as GeoMatch;
       })
       .filter(Boolean) as GeoMatch[];

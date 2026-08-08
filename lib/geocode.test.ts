@@ -5,7 +5,7 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeLocation, matchInCity, pickCandidates } from './geocode';
+import { normalizeLocation, matchInCity, pickCandidates, isPinnablePlace } from './geocode';
 
 describe('normalizeLocation — descriptors out, street names intact', () => {
   it('strips "north side median" (the Rome trigger) but keeps the intersection', () => {
@@ -73,5 +73,41 @@ describe('pickCandidates — in-city, deduped, capped, order kept', () => {
 
   it('empty in → empty out', () => {
     assert.deepEqual(pickCandidates([], CITY), []);
+  });
+});
+
+// Found while testing the review-screen re-pin (2026-08-08): typing a phrase
+// Google can't place ("behind the big oak tree by the creek") returned
+// "Peoria, IL" — the city centroid — and the review screen presented it as
+// "this is where the crew will go". A shrug that looks like a match.
+describe('isPinnablePlace — a region is not a location', () => {
+  it('rejects the city centroid, which is what an unplaceable phrase falls back to', () => {
+    assert.equal(isPinnablePlace(['locality', 'political']), false);
+  });
+
+  it('rejects ZIP, county and state centroids for the same reason', () => {
+    assert.equal(isPinnablePlace(['postal_code']), false);
+    assert.equal(isPinnablePlace(['administrative_area_level_2', 'political']), false);
+    assert.equal(isPinnablePlace(['administrative_area_level_1', 'political']), false);
+  });
+
+  it('keeps every shape a crew could actually drive to', () => {
+    assert.equal(isPinnablePlace(['intersection']), true);
+    assert.equal(isPinnablePlace(['street_address']), true);
+    assert.equal(isPinnablePlace(['route']), true);
+    assert.equal(isPinnablePlace(['premise']), true);
+    assert.equal(isPinnablePlace(['park', 'establishment', 'point_of_interest']), true);
+  });
+
+  it('a street address in a locality is still a street address', () => {
+    // Only the coarse types are disqualifying; they never ride along with a
+    // street-level result, but be explicit about which way the test points.
+    assert.equal(isPinnablePlace(['street_address', 'political']), true);
+  });
+
+  it('does not over-reject an unknown or missing type list', () => {
+    assert.equal(isPinnablePlace(undefined), true);
+    assert.equal(isPinnablePlace([]), true);
+    assert.equal(isPinnablePlace(['something_new_from_google']), true);
   });
 });
