@@ -736,9 +736,18 @@ behaviour, not ours, and is not a failure.
 
 #### G5b · Storage actually blocked — the case the feature exists for ⚠️
 
-**Do:** No iPhone needed. In a **normal** Chrome window, block site data for the
-origin: padlock → Site settings → *Cookies and site data* → **Block**. Reload,
-visit `/track`, then file a report end to end.
+> **RUN THIS ON LOCALHOST. It cannot be run on a Vercel preview — ever.**
+> Previews sit behind Vercel SSO, and SSO needs cookies to authenticate. Block
+> site data and you never reach the app at all: you get a black screen with a
+> Vercel logo saying "Something went wrong," which is Vercel's error page, not
+> ours. The two requirements are mutually exclusive. (Cost a real attempt on
+> 2026-08-10.)
+
+**Do:** No iPhone needed, but localhost only. Set
+`chrome://settings/content/siteData` to **"Don't allow sites to save data on
+your device"** — the padlock menu has no first-party block toggle in current
+Chrome, so don't go looking for one there. Then visit `localhost:3000/track` and
+file a report end to end.
 
 **Expect:** `/track` says **"This browser isn't saving anything"** with the
 private-browsing explanation. The filing still **succeeds**, and the done screen
@@ -748,8 +757,9 @@ says **"This browser won't save it, so keep the link somewhere."**
 claims it was saved. **A storage failure must never cost someone their report —
 that is the whole rule this feature was built under.**
 
-**Afterwards:** unblock site data for the origin, or every later case in this
-run will silently exercise the blocked path.
+**Afterwards:** set site data back to **Allow**, or every later case in this run
+silently exercises the blocked path — and you won't be able to load a preview
+URL at all until you do.
 
 **Note:** Safari private mode is the other shape of this — storage *exists* but
 every write throws, which is why `rememberReport()` guards the write separately
