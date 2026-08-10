@@ -16,6 +16,7 @@
 import { useEffect, useRef, useState } from 'react';
 import styles from './chat.module.css';
 import { pinStillApplies } from '@/lib/location-text';
+import { rememberReport } from '@/lib/report-memory';
 
 type FieldType = 'text' | 'longtext' | 'number' | 'boolean' | 'choice' | 'location' | 'date' | 'attachment';
 type Field = { key: string; label: string; type: FieldType; required: boolean; choices?: string[]; prompt?: string };
@@ -112,6 +113,14 @@ export default function ReportChat() {
   const [submitting, setSubmitting] = useState(false);
   // The filed report's id — the resident's handle on it from here on.
   const [tracking, setTracking] = useState('');
+  // Did this device manage to write the report down? False means private mode
+  // or blocked storage, and the resident needs telling — otherwise they leave
+  // trusting a /track list that will be empty when they come back.
+  const [remembered, setRemembered] = useState(false);
+  // Transient states for the done screen's copy control.
+  const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
+  const [canShare, setCanShare] = useState(false);
 
   const threadRef = useRef<HTMLDivElement>(null);
   // The re-pin a blur kicked off, if one is still in the air — see repinLocation.
@@ -134,6 +143,13 @@ export default function ReportChat() {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: 'smooth' });
     window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
   }, [messages, busy, ready, suggested]);
+
+  // Feature-detected once, after mount rather than during render — the share
+  // button is an enhancement, and a server render that disagrees with the
+  // client is a worse bug than not offering it.
+  useEffect(() => {
+    setCanShare(typeof navigator !== 'undefined' && typeof navigator.share === 'function');
+  }, []);
 
   // `quick` may be a chip's value; the composer's onClick passes a MouseEvent,
   // so only trust it when it's actually a string.
@@ -468,8 +484,27 @@ export default function ReportChat() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || 'Could not file your report — please try again.');
+      const id = String(data.submissionId ?? '');
       setDraft(values);
-      setTracking(String(data.submissionId ?? ''));
+      setTracking(id);
+      // Write the breadcrumb before the done screen paints, so /track is
+      // already right if they leave immediately. rememberReport never throws —
+      // that matters here, because a throw would land in the catch below and
+      // tell someone their report failed when it is already filed.
+      //
+      // The server's category/department win: submit-anon reroutes to a staffed
+      // desk when the canonical owner has no passcode, and the list should name
+      // who actually has it. `pin` — not `geo` — is the reconciled pin from a
+      // few lines up; a stale address is the one thing worse than no address.
+      setRemembered(
+        rememberReport({
+          id,
+          category: String(data.category ?? category ?? ''),
+          department: String(data.department ?? department ?? ''),
+          filedAt: new Date().toISOString(),
+          ...(pin?.matched ? { matched: pin.matched } : {}),
+        }),
+      );
       setPhase('done');
     } catch (e: any) {
       setError(e.message);
@@ -528,6 +563,57 @@ export default function ReportChat() {
     }
   }
 
+  // ── the handle ──
+  //
+  // A UUID printed as plain text is the worst available handle on a report: the
+  // resident is asked to hand-transcribe 36 characters of hex, and nobody will.
+  // These give them a link instead.
+
+  async function copyLink(url: string) {
+    setCopyFailed(false);
+    const done = () => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2400);
+    };
+    try {
+      await navigator.clipboard.writeText(url);
+      done();
+      return;
+    } catch {
+      // navigator.clipboard needs a secure context and a permission that some
+      // in-app browsers refuse. Fall through — a copy button that silently does
+      // nothing is worse than no copy button.
+    }
+    try {
+      const el = document.createElement('textarea');
+      el.value = url;
+      el.setAttribute('readonly', '');
+      el.style.position = 'fixed';
+      el.style.top = '0';
+      el.style.opacity = '0';
+      document.body.appendChild(el);
+      el.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(el);
+      if (!ok) throw new Error('copy rejected');
+      done();
+    } catch {
+      // Last resort is honesty: show the URL so they can select it themselves.
+      setCopyFailed(true);
+    }
+  }
+
+  // Progressive enhancement only — where the OS has a share sheet, the resident
+  // can text the link to themselves instead of us collecting a phone number.
+  async function shareLink(url: string) {
+    try {
+      await navigator.share({ title: 'My report to the city', url });
+    } catch {
+      // Cancelled, or the sheet refused. Nothing to say: the link is still on
+      // screen and still copyable.
+    }
+  }
+
   const routedBanner = category ? (
     <span className={styles.city}>
       {pretty(category)}
@@ -539,6 +625,11 @@ export default function ReportChat() {
 
   if (phase === 'done') {
     const shown = (form?.fields ?? []).filter((f) => f.type !== 'attachment');
+    const trackPath = `/track/${tracking}`;
+    // Absolute, because the point of copying is to paste it somewhere else.
+    // This branch only ever renders after a submit, so window is real here.
+    const trackUrl =
+      typeof window === 'undefined' ? trackPath : `${window.location.origin}${trackPath}`;
     return (
       <main className={styles.wrap}>
         <div className={styles.done}>
@@ -582,9 +673,43 @@ export default function ReportChat() {
             This has gone straight to {department ? pretty(department) : 'the owning department'} — no desk in between.
           </p>
           {tracking && (
-            <p className={styles.doneText} style={{ marginTop: '0.5rem' }}>
-              Your reference number is <strong>{tracking}</strong> — keep it to check on this report.
-            </p>
+            <div className={styles.handle}>
+              <a className={styles.trackLink} href={trackPath}>
+                Track this report →
+              </a>
+              <div className={styles.handleActions}>
+                <button className={styles.secondary} type="button" onClick={() => copyLink(trackUrl)}>
+                  {copied ? 'Copied ✓' : 'Copy link'}
+                </button>
+                {canShare && (
+                  <button className={styles.secondary} type="button" onClick={() => shareLink(trackUrl)}>
+                    Share
+                  </button>
+                )}
+              </div>
+              <p className={styles.handleNote}>
+                {remembered ? (
+                  <>
+                    Saved on this device — find it again at{' '}
+                    <a className={styles.inlineLink} href="/track">
+                      /track
+                    </a>
+                    .
+                  </>
+                ) : (
+                  <>This browser won’t save it, so keep the link somewhere.</>
+                )}
+              </p>
+              {copyFailed && (
+                <p className={styles.handleNote}>
+                  Couldn’t reach the clipboard — the link is <span className={styles.ref}>{trackUrl}</span>
+                </p>
+              )}
+              {/* The fallback, not the interface. */}
+              <p className={styles.refNote}>
+                Reference <span className={styles.ref}>{tracking}</span>
+              </p>
+            </div>
           )}
         </div>
       </main>

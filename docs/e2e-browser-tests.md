@@ -644,6 +644,99 @@ contradiction — you can only catch it by comparing the two.
 **Note:** requires a real filing → shared prod DB → add the ref to the cleanup
 ledger.
 
+---
+
+## Phase G · Finding your report again (2026-08-10)
+
+Background: the intake is anonymous, so the city cannot reach the resident and
+the only handle on a report lives on the resident's side. That handle used to be
+a 36-character UUID printed as plain text — Rajeev lost his during the manual
+run and had no way back. Now the browser remembers what it filed (`localStorage`,
+`lib/report-memory.ts`), `/track` is an index instead of a 404, and the done
+screen offers a link rather than hex.
+
+The record kept on the device is **`{ id, category, department, filedAt,
+matched? }` and nothing else** — no description, no transcript, no photo, no
+address the resident typed. If you ever see report *content* in that list, that
+is a privacy failure, not a display bug.
+
+### G1 · The done screen gives you something you can actually use
+
+**Do:** File a report (reuse the A8/A9 filing rather than making a new one).
+Look at the bottom of the done screen.
+
+**Expect:** a card with **Track this report →**, a **Copy link** button, and —
+on a phone — a **Share** button. Below them, "Saved on this device — find it
+again at /track." The reference number is still there, but small and grey at the
+bottom of the card.
+
+**Fail if:** the reference number is still the main event, or the track link
+404s, or the card says the browser won't save it on a normal (non-private)
+window.
+
+### G2 · The device remembers — THE ONE THAT MATTERS ⚠️
+
+**Do:** After G1, **close the tab entirely.** Open a new one and go to
+`/track` with no id.
+
+**Expect:** the report is listed — category as the title, department as a cyan
+pill, 📍 the matched address if it had one, and "Filed <date>". Tapping it opens
+the existing `/track/<id>` page.
+
+**Fail if:** `/track` 404s (the fix didn't ship), or the list is empty (the
+write didn't happen), or the card shows anything the resident *said*.
+
+### G3 · Two reports, newest first
+
+**Do:** File a second report in a different category. Return to `/track`.
+
+**Expect:** both listed, the newer one first.
+
+**Fail if:** ordering is reversed, or the second filing replaced the first.
+
+**Note:** two real filings → shared prod DB → both refs go in the cleanup
+ledger.
+
+### G4 · "Forget these" erases the device, not the report
+
+**Do:** On `/track`, copy one report's URL first. Then click **Forget these** →
+confirm. Then paste the copied URL.
+
+**Expect:** the list empties to "No reports on this device." The pasted URL
+still opens the report normally — forgetting is local only, and the fine print
+says so.
+
+**Fail if:** the button clears without asking, or the report itself stops
+opening.
+
+### G5 · Private window: filing still works, nothing throws ⚠️
+
+**Do:** Open an incognito/private window. Go to `/track` first, then file a
+report end to end.
+
+**Expect:** `/track` says "This browser isn't saving anything" (not "no reports
+— you haven't filed"). The filing **succeeds normally**, and the done screen
+says "This browser won't save it, so keep the link somewhere."
+
+**Fail if:** anything at all throws, or the report fails to file, or the done
+screen claims it was saved. A storage failure must never cost someone their
+report — that is the whole rule this feature was built under.
+
+**Note:** the harshest version of this is Safari private mode, where storage
+exists but every write throws. Worth a run on a real iPhone if one is handy.
+
+### G6 · The copy control puts a *working* URL on the clipboard
+
+**Do:** Use **Copy link** on the done screen, then paste into the address bar of
+a fresh tab.
+
+**Expect:** a full absolute URL (`https://…/track/<id>`), and it loads the
+report.
+
+**Fail if:** it pastes a bare path, the id alone, or nothing. If the clipboard is
+blocked the screen must *say so* and show the URL to select by hand — a copy
+button that silently does nothing is the failure being guarded against.
+
 ## Results
 
 Fill this in and hand it back.
@@ -688,6 +781,20 @@ Fill this in and hand it back.
 | **F2** | **Editing the address moves the pin** | | |
 | F3 | Unplaceable phrase gets no pin | | |
 | **F4** | **Filed record agrees with the field** | | ref: |
+| G1 | Done screen offers a link, not hex | ✅ localhost 2026-08-10 | |
+| **G2** | **The device remembers across a closed tab** | ✅ localhost 2026-08-10 | ref: 6e936ed4-24ea-4715-aee4-7bd5fba2e939 |
+| G3 | Two reports, newest first | ⚠️ seeded only | ordering shown in the real UI with two seeded records + unit test; not yet two real filings |
+| G4 | "Forget these" is local only | ✅ localhost 2026-08-10 | confirm step + key removed; report still opens by URL |
+| **G5** | **Private window files fine, nothing throws** | ❌ NOT RUN | needs a human — see note below |
+| G6 | Copy puts a working absolute URL on the clipboard | ✅ localhost 2026-08-10 | pasted `http://localhost:3000/track/<id>` |
+
+**G5 has to be run by hand.** The browser extension cannot drive an incognito
+window, and `localStorage` cannot be monkeypatched from the extension's isolated
+world, so there is no way to fake blocked storage from here. The fail-soft
+contract itself is unit-tested in `lib/report-memory.test.ts` — throwing
+`setItem`, throwing `getItem`, throwing property access, and absent storage all
+return false/empty and none of them throw — but "the report still files in a
+private window" has not been observed. **Run it before this ships.**
 
 **Bold rows are the ones that have broken before, or that are new and
 load-bearing.** If you run a short version, run those.

@@ -392,6 +392,55 @@
 .doneTitle { font-size: 1.55rem; font-weight: 650; margin: 0.4rem 0 0.6rem; }
 .doneText { color: var(--muted); line-height: 1.55; }
 
+/* The handle on the report. This used to be one line of prose containing a
+ * bare UUID; it is now a link the resident can tap, copy, or share. The
+ * reference number survives as the fallback at the bottom, deliberately
+ * quieter than everything above it. */
+.handle {
+  margin: 1.25rem auto 0;
+  max-width: 460px;
+  padding: 1rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.trackLink {
+  display: inline-block;
+  color: var(--cyan);
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 600;
+}
+.trackLink:hover { text-decoration: underline; }
+.handleActions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 0.8rem;
+}
+.handleNote {
+  margin: 0.8rem 0 0;
+  font-size: 0.83rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.inlineLink { color: var(--cyan); text-decoration: none; }
+.inlineLink:hover { text-decoration: underline; }
+.refNote {
+  margin: 0.7rem 0 0;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.74rem;
+  color: var(--muted);
+  opacity: 0.8;
+}
+/* Long, and it must stay selectable and never push the card sideways. */
+.ref {
+  font-family: ui-monospace, monospace;
+  word-break: break-all;
+  user-select: all;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .glow, .check { animation: none; }
   .iconBtn.listening { animation: none; }
