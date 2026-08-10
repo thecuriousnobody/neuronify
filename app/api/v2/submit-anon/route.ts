@@ -35,6 +35,7 @@ import { configuredDepartments } from '@/lib/desk-auth';
 import { rateLimit } from '@/lib/ratelimit';
 import { resolveCity } from '@/lib/cities';
 import { errorResponse } from '@/lib/engine/http';
+import { logIntake, cleanSessionId, turnCount } from '@/lib/telemetry';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -184,6 +185,18 @@ export async function POST(req: Request) {
       // The form is authored against the canonical owner; if that desk isn't
       // staffed, run the reachable department's flow instead.
       ...(reachable ? {} : { workflowKey: departmentFlowKey(department as any) }),
+    });
+    // The end of the funnel. Every conversation without one of these was
+    // abandoned — that is how abandonment is counted, so this line is what
+    // makes the rest of the table mean anything.
+    await logIntake({
+      sessionId: cleanSessionId(body?.sessionId),
+      event: 'filed',
+      city: city.db,
+      category,
+      department,
+      turn: turnCount(Array.isArray(body?.history) ? body.history : []),
+      ready: true,
     });
     return Response.json({ ...result, category, department, canonicalDepartment: canonical });
   } catch (err) {

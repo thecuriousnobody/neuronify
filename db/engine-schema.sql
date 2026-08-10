@@ -145,3 +145,40 @@ create table if not exists nf_beta_submissions (
 
 create index if not exists nf_beta_submissions_email_idx
   on nf_beta_submissions (email, created_at desc);
+
+-- ── Intake telemetry (2026-08-10) ──
+-- Where the conversational intake LOSES people. Until this existed, an
+-- abandoned conversation left no trace anywhere: /api/v2/converse ran no SQL,
+-- so someone who got confused at question three and closed the tab was
+-- indistinguishable from someone who never arrived.
+--
+-- SHAPE, NEVER CONTENT. This table records that a turn happened, which
+-- category it was about, and which field keys were still unanswered. It must
+-- never carry what the resident SAID, their coordinates, their IP, or a user
+-- agent. The transcript already lives on filed reports (nf_audit_events);
+-- abandoned conversations are deliberately not worth that much.
+--
+-- `session_id` is a random per-conversation id held in sessionStorage — it dies
+-- with the browser tab and is never linked to a person or to a second
+-- conversation. It exists only so the turns of ONE conversation can be ordered
+-- into a funnel.
+--
+-- Abandonment is DERIVED, not written: a session whose last row is not 'filed'
+-- was abandoned, and that row says exactly which question they were on.
+create table if not exists nf_intake_telemetry (
+  id          bigserial primary key,
+  session_id  text not null,
+  event       text not null,                    -- 'triage' | 'collecting' | 'filed'
+  city        text,
+  category    text,                             -- null while triage is still guessing
+  department  text,
+  turn        integer,                          -- resident messages so far
+  ready       boolean,                          -- had enough to file this turn
+  missing     text[] not null default '{}',     -- field KEYS still unanswered, never values
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists nf_intake_telemetry_session_idx
+  on nf_intake_telemetry (session_id, id);
+create index if not exists nf_intake_telemetry_recent_idx
+  on nf_intake_telemetry (created_at desc);

@@ -17,6 +17,7 @@ import { useEffect, useRef, useState } from 'react';
 import styles from './chat.module.css';
 import { pinStillApplies } from '@/lib/location-text';
 import { rememberReport } from '@/lib/report-memory';
+import { intakeSessionId, resetIntakeSession } from '@/lib/intake-session';
 
 type FieldType = 'text' | 'longtext' | 'number' | 'boolean' | 'choice' | 'location' | 'date' | 'attachment';
 type Field = { key: string; label: string; type: FieldType; required: boolean; choices?: string[]; prompt?: string };
@@ -177,6 +178,10 @@ export default function ReportChat() {
           draft,
           category,
           acknowledgedEmergencies: ackedEmergencies,
+          // Which conversation this turn belongs to, so an abandoned one can be
+          // counted. Tab-scoped and random — not a person. See
+          // lib/intake-session.ts.
+          sessionId: intakeSessionId(),
         }),
       });
       const data = await res.json();
@@ -477,6 +482,7 @@ export default function ReportChat() {
           category,
           values,
           source: 'voice',
+          sessionId: intakeSessionId(),
           history: messages
             .filter((m) => m.role !== 'detected' && m.role !== 'emergency')
             .map((m) => ({ role: m.role, text: m.text })),
@@ -505,6 +511,10 @@ export default function ReportChat() {
           ...(pin?.matched ? { matched: pin.matched } : {}),
         }),
       );
+      // This conversation is over. The next report filed from this tab starts
+      // its own funnel rather than extending a very long one. Safe here: the
+      // server already recorded 'filed' against the old id.
+      resetIntakeSession();
       setPhase('done');
     } catch (e: any) {
       setError(e.message);

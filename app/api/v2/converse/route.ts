@@ -23,6 +23,7 @@ import {
 import { rateLimit } from '@/lib/ratelimit';
 import { errorResponse } from '@/lib/engine/http';
 import { geocodeCandidates } from '@/lib/geocode';
+import { logIntake, cleanSessionId, turnCount } from '@/lib/telemetry';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -100,6 +101,12 @@ export async function POST(req: Request) {
 
   const env = engineEnv();
 
+  // Which conversation this turn belongs to. Random, tab-scoped, not a person —
+  // see lib/intake-session.ts. Absent (private mode, old client) simply means
+  // this turn goes unrecorded; nothing downstream depends on it.
+  const sessionId = cleanSessionId(body?.sessionId);
+  const turnNo = turnCount(history) + 1;
+
   /**
    * One collecting turn over a known category, plus the geocode that may fall
    * out of it. Shared by both phases: the turn where the category LOCKS has to
@@ -131,11 +138,27 @@ export async function POST(req: Request) {
         geo = { fieldKey: locField.key, ...geoCandidates[0], for: String(newLoc) };
     }
 
+    const department = departmentFor(TEMPLATE_FORM_CITY, category);
+
+    // The drop-off curve. `missing` is the useful part: the last row of an
+    // abandoned conversation names the exact questions the resident was still
+    // being asked when they gave up. Keys only — never their answers.
+    await logIntake({
+      sessionId,
+      event: 'collecting',
+      city: TEMPLATE_FORM_CITY,
+      category,
+      department,
+      turn: turnNo,
+      ready: turn.readyForReview,
+      missing: turn.missing,
+    });
+
     return Response.json({
       phase: 'collecting',
       reply: turn.reply,
       category,
-      department: departmentFor(TEMPLATE_FORM_CITY, category),
+      department,
       form: { key: form.key, title: form.title, fields: form.fields },
       draft: turn.draft,
       missing: turn.missing,
@@ -151,7 +174,15 @@ export async function POST(req: Request) {
     if (!locked) {
       const t = await discernCategory(env.llm, TEMPLATE_FORM_CITY, history, message);
       if (!t.category) {
-        // Still unclear — ask another question, stay in triage.
+        // Still unclear — ask another question, stay in triage. Worth recording
+        // on its own: a pile of these means the agent can't tell what people
+        // are reporting, which is a different problem from losing them later.
+        await logIntake({
+          sessionId,
+          event: 'triage',
+          city: TEMPLATE_FORM_CITY,
+          turn: turnNo,
+        });
         return Response.json({ phase: 'triage', reply: t.reply, category: null });
       }
       // Category just locked — now COLLECT from the very message that revealed
