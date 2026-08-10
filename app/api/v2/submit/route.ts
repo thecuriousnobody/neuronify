@@ -3,6 +3,7 @@
 // server-side (never trust the client's "ready").
 import { engineEnv } from '@/lib/engine';
 import { submitForm, type FieldValue } from '@/engine';
+import { drainOutbox } from '@/lib/notify';
 import { rateLimit } from '@/lib/ratelimit';
 import { resolveCity } from '@/lib/cities';
 import { errorResponse } from '@/lib/engine/http';
@@ -65,6 +66,10 @@ export async function POST(req: Request) {
     } catch (err) {
       console.error('[beta] submission link failed:', err);
     }
+    // Opening the workflow queued the department's nudge — deliver it now, or it
+    // waits for an unrelated desk action to flush it. Best-effort: a delivery
+    // failure must never cost the tester their filing.
+    await drainOutbox(result.submissionId).catch(() => {});
     return Response.json(result); // { submissionId, instanceId }
   } catch (err) {
     return errorResponse(err);

@@ -32,6 +32,7 @@ import {
   type FieldValue,
 } from '@/engine';
 import { configuredDepartments } from '@/lib/desk-auth';
+import { drainOutbox } from '@/lib/notify';
 import { rateLimit } from '@/lib/ratelimit';
 import { resolveCity } from '@/lib/cities';
 import { errorResponse } from '@/lib/engine/http';
@@ -186,6 +187,14 @@ export async function POST(req: Request) {
       // staffed, run the reachable department's flow instead.
       ...(reachable ? {} : { workflowKey: departmentFlowKey(department as any) }),
     });
+    // Opening the workflow queued the department's nudge in nf_communications.
+    // Nothing on this path ever drained it: route-direct filings have no staff
+    // confirm step, so the row sat undelivered until a staffer happened to open
+    // that case for some other reason — i.e. the alert that says "a report just
+    // came in" only fired once someone had already found the report. Drain here,
+    // best-effort: a delivery failure must never cost the resident their filing.
+    await drainOutbox(result.submissionId).catch(() => {});
+
     // The end of the funnel. Every conversation without one of these was
     // abandoned — that is how abandonment is counted, so this line is what
     // makes the rest of the table mean anything.
