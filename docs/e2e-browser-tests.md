@@ -737,6 +737,48 @@ report.
 blocked the screen must *say so* and show the URL to select by hand — a copy
 button that silently does nothing is the failure being guarded against.
 
+## Phase H · Told and delivered (2026-08-10)
+
+Both cases here cover changes that unit tests can only half-prove. H1 checks
+copy that a source-level test can see but cannot judge. H2 checks a side effect
+that happens on the *server* — the guard test proves the call exists in the
+route, not that the message arrives.
+
+### H1 · The resident is told before they speak
+
+**Do:** Open `/report/chat` fresh. Read the opening screen *before* typing
+anything. Then run a report through to the review screen and look just above
+**Finish**. Repeat the opening check on `/report`.
+
+**Expect:** on both doors, ahead of the first word, a quiet line saying the
+conversation is saved with the report, can be read by city staff, and may form
+part of the public record. On the review screen, a line saying finishing also
+saves the conversation.
+
+**Fail if:** it appears only *after* the first message (telling someone once
+it's already written down is not telling them), reads as a scary legal banner,
+or is missing on either door. It should be calm — someone reporting a dark
+street needs to be informed, not frightened.
+
+### H2 · The department's alert actually goes out at filing ⚠️
+
+**Do:** This one needs the server log, not the browser. With `npm run dev`
+running locally, file a report end to end and watch the terminal at the moment
+the reference number appears.
+
+**Expect:** a `[relay:department:<dept>→…]` line at **filing time**. With no
+`DESK_CONTACTS` set it reads `→(no contact)` and that is a PASS — the point is
+*when* it fires, not whether SMS is configured.
+
+**Fail if:** nothing is relayed until you later open that case at the desk.
+That was the bug (`3e25ad4`): the nudge sat in `nf_communications` undelivered,
+so "a report just came in" only fired once a staffer had already found the
+report. **This has never been verified in a browser** — only guarded by
+`lib/outbox-drain.test.ts`, which reads the route source.
+
+**Also worth checking:** the same is now true of `/api/v2/submit` (signed-in
+beta), which had the identical hole and was never noticed.
+
 ## Results
 
 Fill this in and hand it back.
@@ -787,6 +829,8 @@ Fill this in and hand it back.
 | G4 | "Forget these" is local only | ✅ localhost 2026-08-10 | confirm step + key removed; report still opens by URL |
 | **G5** | **Private window files fine, nothing throws** | ❌ NOT RUN | needs a human — see note below |
 | G6 | Copy puts a working absolute URL on the clipboard | ✅ localhost 2026-08-10 | pasted `http://localhost:3000/track/<id>` |
+| H1 | Resident is told the conversation is kept | | both doors + review screen |
+| **H2** | **Department alert fires at filing, not later** | | needs the server log, not the browser |
 
 **G5 has to be run by hand.** The browser extension cannot drive an incognito
 window, and `localStorage` cannot be monkeypatched from the extension's isolated
