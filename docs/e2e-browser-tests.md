@@ -709,21 +709,52 @@ says so.
 **Fail if:** the button clears without asking, or the report itself stops
 opening.
 
-### G5 · Private window: filing still works, nothing throws ⚠️
+### G5 · When storage refuses ⚠️
 
-**Do:** Open an incognito/private window. Go to `/track` first, then file a
-report end to end.
+> **Corrected 2026-08-10 — the earlier version of this case was wrong.** It told
+> you to use a Chrome incognito window and expect "This browser isn't saving
+> anything." **Chrome incognito localStorage works fine** — it just clears when
+> the window closes. The probe in `canRemember()` is a real `setItem`, so it
+> succeeds there and the empty state correctly reads "No reports on this
+> device." Running the old case produced a false alarm. Two cases now, because
+> they prove different things.
 
-**Expect:** `/track` says "This browser isn't saving anything" (not "no reports
-— you haven't filed"). The filing **succeeds normally**, and the done screen
-says "This browser won't save it, so keep the link somewhere."
+#### G5a · Incognito is not broken *(Chrome incognito — the browser agent still can't do this one)*
 
-**Fail if:** anything at all throws, or the report fails to file, or the done
-screen claims it was saved. A storage failure must never cost someone their
-report — that is the whole rule this feature was built under.
+**Do:** Open an incognito window. Visit `/track`, then file a report end to end,
+then return to `/track`.
 
-**Note:** the harshest version of this is Safari private mode, where storage
-exists but every write throws. Worth a run on a real iPhone if one is handy.
+**Expect:** everything behaves **normally**. `/track` says "No reports on this
+device" *before* filing, the report files, the done screen says "Saved on this
+device", and the report **appears** at `/track` afterwards.
+
+**Fail if:** the report doesn't file, or `/track` still shows nothing after
+filing. Storage works in this mode — the feature should simply work.
+
+**Note:** the list dies with the incognito session. That is the browser's
+behaviour, not ours, and is not a failure.
+
+#### G5b · Storage actually blocked — the case the feature exists for ⚠️
+
+**Do:** No iPhone needed. In a **normal** Chrome window, block site data for the
+origin: padlock → Site settings → *Cookies and site data* → **Block**. Reload,
+visit `/track`, then file a report end to end.
+
+**Expect:** `/track` says **"This browser isn't saving anything"** with the
+private-browsing explanation. The filing still **succeeds**, and the done screen
+says **"This browser won't save it, so keep the link somewhere."**
+
+**Fail if:** anything throws, the report fails to file, or the done screen
+claims it was saved. **A storage failure must never cost someone their report —
+that is the whole rule this feature was built under.**
+
+**Afterwards:** unblock site data for the origin, or every later case in this
+run will silently exercise the blocked path.
+
+**Note:** Safari private mode is the other shape of this — storage *exists* but
+every write throws, which is why `rememberReport()` guards the write separately
+from the property access. Worth a run on a real iPhone eventually, but the
+Chrome block above exercises the same branch.
 
 ### G6 · The copy control puts a *working* URL on the clipboard
 
@@ -827,18 +858,22 @@ Fill this in and hand it back.
 | **G2** | **The device remembers across a closed tab** | ✅ localhost 2026-08-10 | ref: 6e936ed4-24ea-4715-aee4-7bd5fba2e939 |
 | G3 | Two reports, newest first | ⚠️ seeded only | ordering shown in the real UI with two seeded records + unit test; not yet two real filings |
 | G4 | "Forget these" is local only | ✅ localhost 2026-08-10 | confirm step + key removed; report still opens by URL |
-| **G5** | **Private window files fine, nothing throws** | ❌ NOT RUN | needs a human — see note below |
+| G5a | Incognito isn't broken — storage works, list survives the session | | needs a human (agent can't drive incognito) |
+| **G5b** | **Storage blocked: files anyway, and says so** | | block site data in a normal window — no iPhone needed |
 | G6 | Copy puts a working absolute URL on the clipboard | ✅ localhost 2026-08-10 | pasted `http://localhost:3000/track/<id>` |
 | H1 | Resident is told the conversation is kept | | both doors + review screen |
 | **H2** | **Department alert fires at filing, not later** | | needs the server log, not the browser |
 
-**G5 has to be run by hand.** The browser extension cannot drive an incognito
-window, and `localStorage` cannot be monkeypatched from the extension's isolated
-world, so there is no way to fake blocked storage from here. The fail-soft
-contract itself is unit-tested in `lib/report-memory.test.ts` — throwing
-`setItem`, throwing `getItem`, throwing property access, and absent storage all
-return false/empty and none of them throw — but "the report still files in a
-private window" has not been observed. **Run it before this ships.**
+**G5a has to be run by hand** — the browser extension cannot drive an incognito
+window. **G5b does not**: blocking site data works in a normal window, so the
+agent can run it if it can reach Chrome's site settings; otherwise it is a
+two-minute manual check.
+
+The fail-soft contract itself is unit-tested in `lib/report-memory.test.ts` —
+throwing `setItem`, throwing `getItem`, throwing property access, and absent
+storage all return false/empty and none of them throw. What has never been
+observed is the thing that matters: **the report still files when storage
+refuses.** That is G5b. **Run it before this ships.**
 
 **Bold rows are the ones that have broken before, or that are new and
 load-bearing.** If you run a short version, run those.
