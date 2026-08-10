@@ -59,6 +59,11 @@
 .it { font-style: italic; color: var(--cyan-bright); font-weight: 500; }
 .sub { color: var(--muted); margin: 0 auto 26px; max-width: 44ch; line-height: 1.55; }
 
+/* Retention notice — see chat.module.css .retention. This is the voice-only
+   door, so it matters more here, not less: nothing is typed and nothing is
+   reviewed before the words are recorded. */
+.retention { color: var(--muted); margin: -14px auto 24px; max-width: 46ch; line-height: 1.5; font-size: 0.8rem; opacity: 0.8; }
+
 /* mic */
 .mic {
   position: relative;

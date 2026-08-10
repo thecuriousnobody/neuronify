@@ -98,6 +98,18 @@
   font-size: 0.95rem;
 }
 
+/* The retention notice. Deliberately quiet — it is not a warning and should not
+   read as one. Someone reporting a dark street does not need to be frightened;
+   they need to know, before they speak, that the conversation is kept. */
+.retention {
+  color: var(--muted);
+  margin: 0.9rem auto 0;
+  max-width: 46ch;
+  line-height: 1.5;
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+
 /* ── chat ── */
 .thread {
   flex: 1;

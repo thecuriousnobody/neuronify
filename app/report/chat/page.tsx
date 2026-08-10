@@ -766,6 +766,16 @@ export default function ReportChat() {
             Talk or type — a pothole, a dark street, a broken sign. We’ll read it back before
             anything is filed.
           </p>
+          {/* Said BEFORE the first word, not after. This is voice intake: people
+              speak names, addresses and phone numbers aloud without thinking about
+              where it lands. The conversation is kept as part of the case record
+              (docs/transcript-retention.md) — telling them once it is already
+              written down is not telling them. */}
+          <p className={styles.retention}>
+            Your conversation is saved with your report and can be read by city staff. It may
+            form part of the public record, so please leave out anything you wouldn’t want kept
+            on file.
+          </p>
         </div>
       )}
 
@@ -1171,6 +1181,14 @@ export default function ReportChat() {
             );
           })}
           {error && <div className={styles.error}>{error}</div>}
+          {/* Again at the point of commitment. The review screen reads back the
+              FIELDS, which quietly implies the fields are all that gets filed —
+              the conversation goes with them and is not shown here. Saying so is
+              the difference between a record they agreed to and one they didn't
+              know about. */}
+          <p className={styles.retention}>
+            Finishing files this report and saves your conversation with it.
+          </p>
           <div className={styles.actions}>
             <button
               className={styles.secondary}

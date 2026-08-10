@@ -373,6 +373,13 @@ export default function Report() {
             What needs <span className={styles.it}>fixing?</span>
           </h1>
           <p className={styles.sub}>Tap the mic and describe it — a pothole, a dark street, a broken sign. We’ll read it back before you send.</p>
+          {/* Before the mic, not after. This door is unlinked and slated for
+              retirement, but it is still reachable — and it is the one where
+              people speak rather than type. While it answers, it tells them. */}
+          <p className={styles.retention}>
+            What you say is saved with your report and can be read by city staff. It may form
+            part of the public record.
+          </p>
 
           <button
             type="button"
