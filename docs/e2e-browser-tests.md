@@ -54,13 +54,29 @@ confirm gate in between. The resident gets a reference number.
 
 | | |
 |---|---|
-| Base URL | `https://neuronify.ai` (or `http://localhost:3001` if testing locally) |
+| Base URL | **the preview, not `neuronify.ai`** — see below |
 | Desk passcodes | **Ask the operator — do not guess.** Needed for Phase B only. |
 | A test photo | Any small JPEG/PNG on disk. Needed for A6 and A8. |
+
+**⚠️ `neuronify.ai` is `main`, and everything Phases E–H test lives on a branch.**
+`main` does not even have a `/track` index page — you would get a 404 and report
+it as a bug. Unless told otherwise, the base URL is the branch preview:
+
+```
+https://neuronify-git-fix-blake-feedback-2026-08-07-the-idea-sandbox.vercel.app
+```
+
+**Previews sit behind Vercel SSO.** Only a browser already signed in to Vercel
+gets through; `curl` and API calls are bounced to `vercel.com/sso-api`. If you
+see a black screen with a Vercel logo saying "Something went wrong," you are not
+signed in (or site data is blocked) — that is Vercel, not this app.
 
 ### Preconditions
 
 - [ ] The build under test is deployed (commits through `fix(engine): don't relay a raw form key`).
+- [ ] **You are on the preview URL above, not `neuronify.ai`.** Quick proof
+      you're on the new build: `/report/chat` shows a line about the
+      conversation being saved, and `/track` (no id) is a page rather than a 404.
 - [ ] `/report/chat` loads without error.
 - [ ] You have desk passcodes if running Phase B.
 
