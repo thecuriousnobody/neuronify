@@ -1,5 +1,11 @@
 # Brief for the browser agent
 
+> **⚠️ PARTIAL — scoped to Blake's 2026-08-07 items only.** It does not cover
+> the address/pin fix (Phase F), find my report (Phase G), or the retention
+> notice + outbox drain (Phase H), all of which landed later on the same branch.
+> **For a complete pass, point the agent at `docs/e2e-browser-tests.md` and ask
+> for Phases A–H** — that doc names the preview URL and the SSO gate itself.
+
 Paste this to whatever drives Chrome. It is deliberately narrow: the agent runs
 what a machine runs well, and hands back the things only a person can judge.
 

@@ -1,5 +1,15 @@
 # Verification run — one sitting, in order
 
+> **⚠️ PARTIAL — this is not a full pass on the branch.** Written 2026-08-07,
+> when Blake's eleven items were all that was on it. Three later bodies of work
+> are **not covered here at all**: the address/pin fix (Phase F), find my report
+> (Phase G), and the retention notice + outbox drain (Phase H).
+>
+> Finishing this document proves Blake's items and nothing after them. **For a
+> complete pass use `docs/e2e-browser-tests.md`, Phases A–H.** Come back here
+> only if you specifically want the ordered three-report human walkthrough of
+> Blake's feedback.
+
 A single pass that proves every fix for Blake's feedback. Ordered so each run
 sets up the next: **do them top to bottom** and you'll only file three reports
 total while covering all eleven items.
