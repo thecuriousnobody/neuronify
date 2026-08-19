@@ -28,9 +28,19 @@ free text `TEST —`, and note the reference numbers.
 **LOCALHOST ONLY** — on a preview you'd block the cookies Vercel SSO needs and
 never reach the app (this cost you an attempt on 2026-08-10).
 
-1. Go to **`chrome://settings/content/siteData`** → **"Don't allow sites to save
-   data on your device."**
+1. Go to **`chrome://settings/content/siteData`** → under **"Customised
+   behaviours"** → **"Not allowed to save data on your device"** → **Add** →
+   `http://localhost:3000`.
    *Not the padlock menu — current Chrome has no first-party block toggle there.*
+
+   ⚠️ **Block localhost ONLY. Do NOT flip the global default.**
+   The global "Don't allow sites to save data on your device" switch applies to
+   **every site you have open**. Rajeev hit this on 2026-08-17: an in-progress
+   Word document on the web threw *"Your browser has cookies disabled"* and
+   blanked, because Office could no longer hold a session. Nothing was lost —
+   Office autosaves to OneDrive, and re-enabling restored it — but it cost him
+   the evening's test notes and a scare. A per-site exception tests exactly the
+   same code path with none of the blast radius.
 2. Visit `localhost:3000/track`.
    **Expect:** "This browser isn't saving anything" + the private-browsing note.
 3. File a report end to end.
