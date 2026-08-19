@@ -96,6 +96,36 @@ export function pickCandidates(matches: GeoMatch[], city: string, max = 4): GeoM
   return out;
 }
 
+/** "A and B" names the same corner as "B and A" — but the provider is
+ *  word-order sensitive. Probed live (Finding 5, 2026-08-18): Peoria has two
+ *  Knoxville/Frye intersections ~5.8 miles apart, and "Knoxville and Frye"
+ *  returns both while "Frye and Knoxville" returns only one — so the resident
+ *  who says it in the "wrong" order is never shown the corner they meant (the
+ *  alternates row has nothing to render). For an intersection-shaped phrase,
+ *  return both orders so both get queried. Comma-bearing phrases are left
+ *  alone: "Fry and Knoxville, Peoria" would swap into nonsense. */
+const STREET_TYPE_RE =
+  /\s+(avenue|ave|street|st|road|rd|drive|dr|boulevard|blvd|lane|ln|parkway|pkwy|court|ct|place|pl|terrace|ter|highway|hwy)\.?$/i;
+
+/** "Frye Avenue" → "Frye". A resident names the suffix from memory, not a map
+ *  — Rajeev's filed "Frye Avenue and Knoxville Avenue" excluded the N Frye RD
+ *  corner in both word orders purely because he guessed "Avenue". */
+function bareStreet(part: string): string {
+  return part.trim().replace(STREET_TYPE_RE, '');
+}
+
+export function intersectionVariants(cleaned: string): string[] {
+  const m = cleaned.match(/^([^,]+?)\s+(?:and|&)\s+([^,]+)$/i);
+  if (!m) return [cleaned];
+  const a = m[1].trim();
+  const b = m[2].trim();
+  const bareA = bareStreet(a);
+  const bareB = bareStreet(b);
+  const variants = [cleaned, `${b} and ${a}`];
+  if (bareA !== a || bareB !== b) variants.push(`${bareA} and ${bareB}`, `${bareB} and ${bareA}`);
+  return [...new Set(variants)];
+}
+
 /** All plausible in-city pins for a resident's phrase, best first. The top one
  *  is the auto-pin; the rest are offered as "not this spot?" alternates. */
 export async function geocodeCandidates(rawLocation: string, city: string): Promise<GeoMatch[]> {
@@ -104,11 +134,15 @@ export async function geocodeCandidates(rawLocation: string, city: string): Prom
   // The agent often already includes the city ("... , Peoria, IL"); don't append
   // it twice — Google tolerates it, but the query stays cleaner this way.
   const head = city.split(',')[0].trim().toLowerCase();
-  const anchored = head && cleaned.toLowerCase().includes(head) ? cleaned : `${cleaned}, ${city}`;
-  const matches = await (process.env.GOOGLE_MAPS_API_KEY
-    ? geocodeGoogle(anchored)
-    : geocodeCensus(anchored));
-  return pickCandidates(matches, city);
+  const variants = intersectionVariants(cleaned).map((v) =>
+    head && v.toLowerCase().includes(head) ? v : `${v}, ${city}`,
+  );
+  // Resident's own word order first: its top result stays the auto-pin, the
+  // swapped order only ever ADDS candidates (pickCandidates dedups the overlap).
+  const perVariant = await Promise.all(
+    variants.map((v) => (process.env.GOOGLE_MAPS_API_KEY ? geocodeGoogle(v) : geocodeCensus(v))),
+  );
+  return pickCandidates(perVariant.flat(), city);
 }
 
 export async function geocodeApprox(rawLocation: string, city: string): Promise<GeoMatch | null> {

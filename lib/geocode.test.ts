@@ -5,7 +5,7 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeLocation, matchInCity, pickCandidates, isPinnablePlace } from './geocode';
+import { normalizeLocation, matchInCity, pickCandidates, isPinnablePlace, intersectionVariants } from './geocode';
 
 describe('normalizeLocation — descriptors out, street names intact', () => {
   it('strips "north side median" (the Rome trigger) but keeps the intersection', () => {
@@ -109,5 +109,47 @@ describe('isPinnablePlace — a region is not a location', () => {
     assert.equal(isPinnablePlace(undefined), true);
     assert.equal(isPinnablePlace([]), true);
     assert.equal(isPinnablePlace(['something_new_from_google']), true);
+  });
+});
+
+describe('intersectionVariants — both word orders survive to the geocoder', () => {
+  // Finding 5 (2026-08-18): two Knoxville/Frye intersections ~5.8 miles apart.
+  // Probed live: "Knoxville and Frye" → 2 candidates, "Frye and Knoxville" → 1.
+  // The resident's word order must not silently decide which corners exist.
+
+  it('an "A and B" intersection also queries "B and A", plus both orders bare of street-type suffixes', () => {
+    // Rajeev guessed "Avenue"; the corner he meant is on N Frye RD. The suffix
+    // is the resident's guess, not knowledge — it must not veto a corner.
+    assert.deepEqual(intersectionVariants('Frye Avenue and Knoxville Avenue'), [
+      'Frye Avenue and Knoxville Avenue',
+      'Knoxville Avenue and Frye Avenue',
+      'Frye and Knoxville',
+      'Knoxville and Frye',
+    ]);
+  });
+
+  it('suffix-free streets add no bare variants (no duplicate queries)', () => {
+    assert.deepEqual(intersectionVariants('Fry and Knoxville'), ['Fry and Knoxville', 'Knoxville and Fry']);
+  });
+
+  it('ampersand form swaps too', () => {
+    assert.deepEqual(intersectionVariants('Fry & Knoxville'), ['Fry & Knoxville', 'Knoxville and Fry']);
+  });
+
+  it('a plain address is left alone', () => {
+    assert.deepEqual(intersectionVariants('1200 E Glen Ave'), ['1200 E Glen Ave']);
+  });
+
+  it('a comma-bearing phrase is never swapped into nonsense', () => {
+    assert.deepEqual(intersectionVariants('Fry and Knoxville, Peoria'), ['Fry and Knoxville, Peoria']);
+  });
+
+  it('a multi-word street swaps cleanly at the separator, bare variants included', () => {
+    assert.deepEqual(intersectionVariants('Pioneer Parkway and University'), [
+      'Pioneer Parkway and University',
+      'University and Pioneer Parkway',
+      'Pioneer and University',
+      'University and Pioneer',
+    ]);
   });
 });
