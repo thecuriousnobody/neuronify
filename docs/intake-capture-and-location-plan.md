@@ -143,3 +143,79 @@ Recommendation: **A**, with **B** as the text fallback where a map can't render.
 
 The chips-linger-after-category-switch defect (Finding 1) and the "voice" mislabel
 (Finding 4) are real but separate. Do not fold them in.
+
+---
+
+# Results — overnight run, 2026-08-18 → 19
+
+Fixes 1–3 are DONE, committed (`d79b4fa`, `27757ea`), verified live at the
+engine seam against the real model and geocoder. **Nothing was filed** — no
+browser, no submissions; the shared DB was only read. Fix 4 is prepped and
+awaiting Rajeev's call. 197 tests green (183 at branch point + 14 new),
+typecheck clean, production build clean.
+
+## Fix 1 — root cause established, then fixed
+
+Reproduced live 6/6 before touching anything: the real model on the real
+pothole form, given the spoken-style opener, extracts location + size +
+road_position + hazard and leaves `description` empty — then asks for it.
+Hypothesis 2 was correct: nothing told the model the opening narrative IS the
+description. Three layers now, tested at each level:
+
+1. **Field-level hint on longtext fields** — the decisive one. A rules-list
+   instruction alone measurably did nothing (still 4/4 empty). With the hint on
+   the field itself, the model extracts `description` 4/4 near-verbatim and
+   stops asking for it. The hint also insists the same words still fill the
+   specific fields — without that clause, road_position and size migrated INTO
+   the description and got skipped (caught live, 3/4).
+2. **Prompt rule** for the narrative → description relationship (kept; harmless
+   reinforcement).
+3. **Engine backstop in `runIntakeTurn`** — the guarantee, since prompts are
+   advisory: a fact-bearing opener (≥1 other field extracted from it) whose
+   required longtext is still empty banks the opener **verbatim** as the
+   description. Resident's own words, no paraphrase — which also chips at
+   Finding 3 for the backstop case.
+
+## Fix 2 — the guard now suppresses instead of decorating
+
+`stripWrapUpClaims` drops the sentences that falsely claim wrap-up/filing
+(only consulted while fields are missing, when any such claim is false by
+definition); the readiness probe is now ends-with-`?` instead of
+`includes('?')`, so a rhetorical "sound good?" cannot defeat it; the appended
+question is the field's label as a bare question — no "One more thing —"
+pasting. The original incident case ("I'm sending this to our street repair
+team right now") still fires the guard and stays tested.
+
+## Fix 3 — the open question is ANSWERED, and the fix changed shape as predicted
+
+**The filed report's location was Rajeev's phrase VERBATIM.** The stored
+transcript of `e905fb7f…` shows him saying "I see a pothole at Frye Avenue and
+Knoxville Avenue" — extraction rewrote nothing (and the fresh 6-trial live run
+kept "Knoxville and Fry" verbatim every time). The collapse is the
+**provider's word-order and suffix sensitivity**:
+
+| his phrase, probed | candidates |
+|---|---|
+| `Frye Avenue and Knoxville Avenue` (as filed) | 1 — E Frye Ave only |
+| swapped order | 1 — the "Avenue" suffix excludes the N Frye **Rd** corner |
+| bare of suffixes, either order | 2 — both corners |
+
+So `geocodeCandidates` now expands an intersection phrase into up to four
+queries — both word orders, plus both orders bare of street-type suffixes —
+in parallel, merged through the existing `pickCandidates` dedup. The
+resident's own order stays first, so the auto-pin is unchanged; extra queries
+only ever ADD alternates. `pickCandidates`/ranking untouched, per the warning
+above. A prompt rule additionally pins location extraction to the resident's
+verbatim phrasing. Verified live: the exact filed phrase now yields both
+corners; plain addresses and unambiguous intersections unchanged.
+
+## Fix 4 — prepped, blocked on Rajeev (as required)
+
+Feasibility established for both leading options: **A (map pins)** — no map
+library exists in the resident UI, but a server-proxied Google Static Maps
+image (key already in env, stays server-side) can render the two pins;
+**B (landmark anchors)** — `GOOGLE_PLACES_API_KEY` is present, so a nearby-POI
+reverse lookup is a small server addition. Question sent to Rajeev; nothing
+built ahead of his answer. Note Fix 3 makes this MORE visible: the alternates
+row now renders in exactly the case that used to collapse, still labelled with
+the compass names Finding 7 says residents can't resolve.
