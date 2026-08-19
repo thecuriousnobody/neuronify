@@ -26,9 +26,12 @@ type Form = { key: string; title: string; fields: Field[] };
 // what kind of report this is and where it routes.
 // 'emergency' is the hard stop — a life-safety interruption that replaces the
 // next intake question instead of decorating it.
+// 'pin' is a placeholder for the live location card (map + spot picker) at the
+// point in the conversation where the location resolved — its content renders
+// from current geo state, so tapping an alternate updates it in place.
 type EmergencyKind = 'life_safety' | 'gas' | 'power' | 'water';
 type Msg = {
-  role: 'user' | 'assistant' | 'detected' | 'emergency';
+  role: 'user' | 'assistant' | 'detected' | 'emergency' | 'pin';
   text: string;
   dept?: string;
   kind?: EmergencyKind;
@@ -257,10 +260,13 @@ export default function ReportChat() {
       const res = await fetch('/api/v2/converse', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        // 'detected' cards are UI-only — never send them as conversation turns.
+        // 'detected' and 'pin' cards are UI-only — never send them as
+        // conversation turns.
         body: JSON.stringify({
           message: text,
-          history: messages.filter((m) => m.role !== 'detected' && m.role !== 'emergency'),
+          history: messages.filter(
+            (m) => m.role !== 'detected' && m.role !== 'emergency' && m.role !== 'pin',
+          ),
           draft,
           category,
           acknowledgedEmergencies: ackedEmergencies,
@@ -284,11 +290,18 @@ export default function ReportChat() {
 
       // Surface the detection as its own visible moment the first time it lands.
       const justDetected = data.category && !category;
+      // The location card lives IN the thread, at the point the location
+      // resolved — anchored above it, it scrolled out of sight as the chat
+      // grew and nothing told a new resident to scroll back up (Rajeev's
+      // phone pass, 2026-08-19). One live card: when a NEW pin lands, any
+      // earlier card moves down to the current turn rather than duplicating.
+      const base = data.geo ? nextHistory.filter((m) => m.role !== 'pin') : nextHistory;
       setMessages([
-        ...nextHistory,
+        ...base,
         ...(justDetected
           ? [{ role: 'detected' as const, text: data.category, dept: data.department }]
           : []),
+        ...(data.geo ? [{ role: 'pin' as const, text: '' }] : []),
         { role: 'assistant', text: data.reply },
       ]);
       if (data.category) {
@@ -865,41 +878,9 @@ export default function ReportChat() {
         </div>
       )}
 
-      {/* In review the pin is rendered under the address field itself, not up
-          here. Floating above the card it read as an unrelated page header —
-          the field showed the resident's words, the banner showed an address,
-          and nothing said the two were about each other. */}
-      {phase !== 'review' && geo && (
-        <div
-          style={{
-            margin: '0.4rem 0 0.2rem',
-            fontSize: '0.82rem',
-            opacity: 0.85,
-            display: 'flex',
-            gap: '0.4rem',
-            alignItems: 'baseline',
-          }}
-          title={`${geo.lat.toFixed(5)}, ${geo.lon.toFixed(5)}`}
-        >
-          <span>📍</span>
-          <span>Location found: <strong>{geo.matched}</strong></span>
-        </div>
-      )}
-      {phase !== 'review' && geo && geoCandidates.length > 0 && (
-        // One candidate shows as a confirmation map ("yes, that's the spot");
-        // several show the pick-a-pin choice (Rajeev, 2026-08-19: the map is
-        // reassurance the agent got it, not just conflict resolution).
-        <CandidateMap
-          candidates={geoCandidates}
-          selected={geo.matched}
-          // Same query, different result — the text this pin was resolved
-          // from is unchanged, so it still applies to the same address.
-          onPick={(c) =>
-            setGeo({ fieldKey: geo.fieldKey, matched: c.matched, lat: c.lat, lon: c.lon, for: geo.for })
-          }
-        />
-      )}
-
+      {/* The location card renders INSIDE the thread (the 'pin' message role)
+          — anchored up here it scrolled out of sight as the chat grew. In
+          review the pin renders under the address field itself. */}
       {phase === 'chat' && (
         <>
           <div className={styles.thread} ref={threadRef}>
@@ -946,6 +927,46 @@ export default function ReportChat() {
                     </button>
                   )}
                 </div>
+              ) : m.role === 'pin' ? (
+                // The live location card — content comes from CURRENT geo
+                // state, so tapping an alternate updates this card in place.
+                geo ? (
+                  <div key={i} style={{ alignSelf: 'stretch', margin: '0.35rem 0' }}>
+                    <div
+                      style={{
+                        margin: '0 0 0.25rem',
+                        fontSize: '0.82rem',
+                        opacity: 0.85,
+                        display: 'flex',
+                        gap: '0.4rem',
+                        alignItems: 'baseline',
+                      }}
+                      title={`${geo.lat.toFixed(5)}, ${geo.lon.toFixed(5)}`}
+                    >
+                      <span>📍</span>
+                      <span>
+                        Location found: <strong>{geo.matched.replace(/, USA$/, '')}</strong>
+                      </span>
+                    </div>
+                    {geoCandidates.length > 0 && (
+                      <CandidateMap
+                        candidates={geoCandidates}
+                        selected={geo.matched}
+                        // Same query, different result — the text this pin was
+                        // resolved from is unchanged.
+                        onPick={(c) =>
+                          setGeo({
+                            fieldKey: geo.fieldKey,
+                            matched: c.matched,
+                            lat: c.lat,
+                            lon: c.lon,
+                            for: geo.for,
+                          })
+                        }
+                      />
+                    )}
+                  </div>
+                ) : null
               ) : m.role === 'emergency' ? (
                 // The hard stop. Loud on purpose, and it does not look like the
                 // assistant's ordinary voice — this is not part of filing.
