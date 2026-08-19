@@ -84,18 +84,19 @@ function CandidateMap({
           }}
         />
       )}
+      {/* Label on its own line, then one full-width choice per line — on a
+          phone the old wrapping row put the label and A together with B
+          orphaned underneath (Rajeev, 2026-08-19). */}
       <div
         style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          gap: '0.35rem',
-          marginTop: '0.35rem',
+          fontSize: '0.75rem',
+          color: 'var(--muted-2, #7b8794)',
+          margin: '0.4rem 0 0.3rem',
         }}
       >
-        <span style={{ fontSize: '0.75rem', color: 'var(--muted-2, #7b8794)' }}>
-          Which spot did you mean?
-        </span>
+        Which spot did you mean?
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', maxWidth: 480 }}>
         {candidates.map((c, i) => {
           const active = c.matched === selected;
           return (
@@ -108,11 +109,13 @@ function CandidateMap({
               title={c.matched.replace(/, USA$/, '')}
               className={styles.pinAlt}
               aria-pressed={active}
-              style={
-                active
+              style={{
+                width: '100%',
+                textAlign: 'left',
+                ...(active
                   ? { borderColor: 'rgba(56, 189, 248, 0.7)', fontWeight: 600 }
-                  : undefined
-              }
+                  : undefined),
+              }}
             >
               {letters[i] ?? '•'} — {c.label ?? c.matched.replace(/, USA$/, '')}
             </button>
