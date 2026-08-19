@@ -209,13 +209,34 @@ above. A prompt rule additionally pins location extraction to the resident's
 verbatim phrasing. Verified live: the exact filed phrase now yields both
 corners; plain addresses and unambiguous intersections unchanged.
 
-## Fix 4 — prepped, blocked on Rajeev (as required)
+## Fix 4 — DONE. Rajeev chose A (map pins, landmark fallback) from his phone
 
-Feasibility established for both leading options: **A (map pins)** — no map
-library exists in the resident UI, but a server-proxied Google Static Maps
-image (key already in env, stays server-side) can render the two pins;
-**B (landmark anchors)** — `GOOGLE_PLACES_API_KEY` is present, so a nearby-POI
-reverse lookup is a small server addition. Question sent to Rajeev; nothing
-built ahead of his answer. Note Fix 3 makes this MORE visible: the alternates
-row now renders in exactly the case that used to collapse, still labelled with
-the compass names Finding 7 says residents can't resolve.
+Both alternates rows (chat and review screen) are now a `CandidateMap`: the
+candidates as lettered pins on a small auto-fit map, with pick buttons named
+in resident terms — for the two Frye corners, **"A — near McDonald's" vs
+"B — near Kroger"**. The formal street name survives only as a hover title.
+
+Pieces, all fail-soft (a dead map hides; labels degrade landmark → direction →
+distinct street name):
+- `app/api/v2/staticmap` — proxies Google Static Maps so the key stays
+  server-side; strict `parsePins` validation and its own rate-limit bucket
+  (`staticmap` — no min-gap, or the image 429s for arriving right after the
+  geocode call that produced it).
+- `lib/landmarks.ts` — labels via Places API **v1** `searchNearby`,
+  **POPULARITY** ranking, 700 m radius. Two live findings that shaped it: the
+  legacy Places endpoint is not enabled on this project (REQUEST_DENIED), and
+  the dedicated `GOOGLE_PLACES_API_KEY` 403s on v1 while `GOOGLE_MAPS_API_KEY`
+  is entitled — both keys are tried in order, so fixing the Places key's
+  permissions later just works. DISTANCE ranking was probed and rejected: the
+  nearest POI to a corner is a random office listing ("Buckingham Jeffrey K");
+  the popular one is the Kroger people navigate by.
+- `labelCandidates` enrichment in `converse` + `geocode` routes (only when >1
+  candidate); duplicate labels fall back to distinct street names.
+
+**Browser-verified end-to-end on localhost, nothing filed** (conversation
+abandoned at the review screen): opener with the ambiguous corner → map +
+both labeled buttons render in chat → tapping "B — near Kroger" moves the pin
+to N Frye Rd → review screen shows the same picker inside the location field,
+selection preserved, "this is where the crew will go" tracking it. The same
+run also showed Fix 1 live: the bot recited all four opener facts and asked
+only for size — no "What's going on?" re-ask.

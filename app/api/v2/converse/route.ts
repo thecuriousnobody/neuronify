@@ -23,6 +23,7 @@ import {
 import { rateLimit } from '@/lib/ratelimit';
 import { errorResponse } from '@/lib/engine/http';
 import { geocodeCandidates } from '@/lib/geocode';
+import { labelCandidates } from '@/lib/landmarks';
 import { logIntake, cleanSessionId, turnCount } from '@/lib/telemetry';
 
 export const runtime = 'nodejs';
@@ -125,11 +126,15 @@ export async function POST(req: Request) {
     let geo:
       | { fieldKey: string; matched: string; lat: number; lon: number; for: string }
       | null = null;
-    let geoCandidates: { matched: string; lat: number; lon: number }[] = [];
+    let geoCandidates: { matched: string; lat: number; lon: number; label?: string }[] = [];
     if (locField && newLoc && newLoc !== priorLoc) {
       // Top candidate auto-pins (zero friction); the rest ride along so the
       // resident can tap "not this spot?" instead of typing corrections.
       geoCandidates = await geocodeCandidates(String(newLoc), TEMPLATE_FORM_CITY);
+      // Ambiguity gets resident-friendly names ("near Northwoods Mall"), never
+      // the compass-prefixed street forms nobody at the corner can resolve.
+      if (geoCandidates.length > 1)
+        geoCandidates = await labelCandidates(geoCandidates, TEMPLATE_FORM_CITY);
       // `for` is the text this pin was resolved FROM. The resident can still
       // edit that text on the review screen, and a pin that no longer matches
       // what the field says must not be shown or filed — see

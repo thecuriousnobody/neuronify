@@ -11,6 +11,7 @@
 // caller can tell whether they still apply to what's in the field (see
 // lib/location-text.ts). Anonymous like the rest of the resident-facing path.
 import { geocodeCandidates } from '@/lib/geocode';
+import { labelCandidates } from '@/lib/landmarks';
 import { TEMPLATE_FORM_CITY } from '@/engine';
 import { rateLimit } from '@/lib/ratelimit';
 
@@ -41,6 +42,9 @@ export async function POST(req: Request) {
 
   // Fail-soft, like every other use of the geocoder: no match is not an error.
   // The report files on the resident's own words; the pin is the bonus.
-  const candidates = await geocodeCandidates(location, TEMPLATE_FORM_CITY);
+  let candidates: Awaited<ReturnType<typeof labelCandidates>> | Awaited<ReturnType<typeof geocodeCandidates>> =
+    await geocodeCandidates(location, TEMPLATE_FORM_CITY);
+  // Same resident-friendly labels the conversation path gets (see converse).
+  if (candidates.length > 1) candidates = await labelCandidates(candidates, TEMPLATE_FORM_CITY);
   return Response.json({ for: location, candidates });
 }

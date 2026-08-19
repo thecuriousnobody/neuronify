@@ -13,6 +13,7 @@ export type RateLimitBucket =
   | 'chat'
   | 'voice'
   | 'geocode'
+  | 'staticmap'
   | 'upload'
   | 'submit'
   | 'desk'
@@ -36,6 +37,9 @@ const POLICIES: Record<RateLimitBucket, Policy> = {
   // sending a chat message is one motion, and a shared counter would scold them
   // for it. Costs a geocoder call, not a model call — a loose leash is fine.
   geocode: { windowMs: 60_000, maxPerWindow: 30, minGapMs: 400 },
+  // The candidate-map image. Loads immediately AFTER a geocode from the same
+  // IP — its own bucket with no gap, or the image 429s for arriving promptly.
+  staticmap: { windowMs: 60_000, maxPerWindow: 40, minGapMs: 100 },
   // A resident may legitimately attach several photos in a row.
   upload: { windowMs: 60_000, maxPerWindow: 20, minGapMs: 500 },
   // Filing writes a real, permanent record. Keep this strict.

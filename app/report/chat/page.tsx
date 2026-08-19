@@ -46,6 +46,83 @@ type Value = {
 const GREETING = 'Hi — I can help you report something to the city. In a sentence or two, what’s going on?';
 const pretty = (k: string) => k.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
+type Candidate = { matched: string; lat: number; lon: number; label?: string };
+
+/**
+ * The ambiguous-location picker: candidate pins on a small map, each with a
+ * button named in words a resident actually holds — "A — near Northwoods
+ * Mall", never "N Frye Rd & Knoxville Ave" (nobody standing at the corner
+ * knows there's a North and an East Frye; the sign just says Frye. Rajeev,
+ * 2026-08-18). The map is served by our own /api/v2/staticmap proxy; if it
+ * can't render, it hides and the labeled buttons carry the choice alone.
+ */
+function CandidateMap({
+  candidates,
+  selected,
+  onPick,
+}: {
+  candidates: Candidate[];
+  selected: string;
+  onPick: (c: Candidate) => void;
+}) {
+  const [mapBroken, setMapBroken] = useState(false);
+  const letters = ['A', 'B', 'C', 'D'];
+  const pins = candidates.map((c) => `${c.lat.toFixed(6)},${c.lon.toFixed(6)}`).join('|');
+  return (
+    <div style={{ margin: '0.4rem 0 0.2rem' }}>
+      {!mapBroken && (
+        <img
+          src={`/api/v2/staticmap?pins=${encodeURIComponent(pins)}`}
+          alt="Map showing each possible spot, lettered to match the choices below"
+          onError={() => setMapBroken(true)}
+          style={{
+            width: '100%',
+            maxWidth: 480,
+            borderRadius: 10,
+            border: '1px solid rgba(148, 163, 184, 0.25)',
+            display: 'block',
+          }}
+        />
+      )}
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          gap: '0.35rem',
+          marginTop: '0.35rem',
+        }}
+      >
+        <span style={{ fontSize: '0.75rem', color: 'var(--muted-2, #7b8794)' }}>
+          Which spot did you mean?
+        </span>
+        {candidates.map((c, i) => {
+          const active = c.matched === selected;
+          return (
+            <button
+              key={c.matched}
+              type="button"
+              onClick={() => onPick(c)}
+              // The formal street name still exists for whoever wants it —
+              // as a hover/long-press title, not as the choice itself.
+              title={c.matched.replace(/, USA$/, '')}
+              className={styles.pinAlt}
+              aria-pressed={active}
+              style={
+                active
+                  ? { borderColor: 'rgba(56, 189, 248, 0.7)', fontWeight: 600 }
+                  : undefined
+              }
+            >
+              {letters[i] ?? '•'} — {c.label ?? c.matched.replace(/, USA$/, '')}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // Where a resident photo lands in the Blob store. /api/v2/upload will only sign
 // this shape, so keep the two in step: reports/<safe-name>.<image-ext>. The
 // store adds a random suffix, so collisions aren't our problem here.
@@ -102,9 +179,10 @@ export default function ReportChat() {
   // while a DIFFERENT danger still stops them.
   const [ackedEmergencies, setAckedEmergencies] = useState<EmergencyKind[]>([]);
   // Alternate geocoder pins — the top one auto-pins; these let the resident
-  // tap "not this spot?" instead of typing a correction.
+  // tap the spot they meant instead of typing a correction. `label` is the
+  // resident-friendly anchor the server attached ("near Northwoods Mall").
   const [geoCandidates, setGeoCandidates] = useState<
-    { matched: string; lat: number; lon: number }[]
+    { matched: string; lat: number; lon: number; label?: string }[]
   >([]);
   // A re-pin is in flight for an address edited on the review screen.
   const [repinning, setRepinning] = useState(false);
@@ -800,34 +878,15 @@ export default function ReportChat() {
         </div>
       )}
       {phase !== 'review' && geo && geoCandidates.length > 1 && (
-        <div
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            gap: '0.35rem',
-            margin: '0.3rem 0 0.2rem',
-          }}
-        >
-          <span style={{ fontSize: '0.75rem', color: 'var(--muted-2, #7b8794)' }}>
-            Not this spot?
-          </span>
-          {geoCandidates
-            .filter((c) => c.matched !== geo.matched)
-            .map((c) => (
-              <button
-                key={c.matched}
-                type="button"
-                // Same query, different result — the text this pin was resolved
-                // from is unchanged, so it still applies to the same address.
-                onClick={() => setGeo({ fieldKey: geo.fieldKey, ...c, for: geo.for })}
-                className={styles.secondary}
-                style={{ fontSize: '0.75rem', padding: '0.25rem 0.55rem' }}
-              >
-                {c.matched.replace(/, USA$/, '')}
-              </button>
-            ))}
-        </div>
+        <CandidateMap
+          candidates={geoCandidates}
+          selected={geo.matched}
+          // Same query, different result — the text this pin was resolved
+          // from is unchanged, so it still applies to the same address.
+          onPick={(c) =>
+            setGeo({ fieldKey: geo.fieldKey, matched: c.matched, lat: c.lat, lon: c.lon, for: geo.for })
+          }
+        />
       )}
 
       {phase === 'chat' && (
@@ -1139,23 +1198,15 @@ export default function ReportChat() {
                         </span>
                       </div>
                       {geoCandidates.length > 1 && (
-                        <div className={styles.pinAlts}>
-                          <span className={styles.pinAltsLabel}>Not this spot?</span>
-                          {geoCandidates
-                            .filter((c) => c.matched !== pin.matched)
-                            .map((c) => (
-                              <button
-                                key={c.matched}
-                                type="button"
-                                className={styles.pinAlt}
-                                // Same query, different result — the text the
-                                // pin was resolved from hasn't changed.
-                                onClick={() => setGeo({ fieldKey: f.key, ...c, for: pin.for })}
-                              >
-                                {c.matched.replace(/, USA$/, '')}
-                              </button>
-                            ))}
-                        </div>
+                        <CandidateMap
+                          candidates={geoCandidates}
+                          selected={pin.matched}
+                          // Same query, different result — the text the
+                          // pin was resolved from hasn't changed.
+                          onPick={(c) =>
+                            setGeo({ fieldKey: f.key, matched: c.matched, lat: c.lat, lon: c.lon, for: pin.for })
+                          }
+                        />
                       )}
                     </>
                   ) : locText ? (
