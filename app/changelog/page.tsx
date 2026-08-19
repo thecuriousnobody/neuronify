@@ -9,6 +9,54 @@ export const metadata: Metadata = {
 // Data-driven so future entries are a one-object edit. Newest first.
 const RELEASES = [
   {
+    tag: 'Smart intake',
+    date: 'August 2026',
+    intro:
+      'The conversation got a great deal better at listening. Tell it everything in your first sentence and it will stop asking you to repeat yourself, put a real map pin under the address it understood, and hand the department a photo they can actually open. Reports also stop disappearing on you: this browser now remembers what it filed.',
+    sections: [
+      {
+        title: 'For residents',
+        items: [
+          ['Say it all at once', 'A first message like “a big pothole at Fry and Knoxville, in the traffic lane, about the size of a dinner plate” is read in full — location, lane and size are captured, and you are only asked for what you genuinely left out.'],
+          ['Find your report again', 'The finish screen gives you a link, a copy button and a share button instead of a bare reference number. This browser remembers what you filed, so /track lists your reports even if you lose the link. It stays on your device — we still don’t have your name — and “Forget these” clears it.'],
+          ['The pin sits with the address', 'The resolved location appears directly under the address field, as “this is where the crew will go”. Edit the address and the pin follows it. If a phrase can’t be placed on a map, it says so rather than dropping a pin in the middle of the city.'],
+          ['Typo-tolerant locations', '“Fry and Knoxville” resolves to Knoxville Ave & E Frye Ave.'],
+          ['An honest answer about photos', 'Where a photo is required, it asks for one — and if you can’t provide one, it asks why and sends that to the crew instead. It will never promise you can add a photo later, because you can’t.'],
+          ['Emergencies stop the form', 'Gas, downed power lines, a water main break or an injury break off intake immediately with a Call 911 link, and tell you to get clear before they tell you to call. Ordinary reports — a leaking hydrant, a downed branch — are never interrupted.'],
+          ['You’re told before you speak', 'Both doors say up front that the conversation is saved with your report, can be read by city staff, and may form part of the public record.'],
+        ],
+      },
+      {
+        title: 'For the city',
+        items: [
+          ['Photos you can open', 'Required photos now render on the case and open full size, served through short-lived signed links from private storage. The resident can see their own photo too.'],
+          ['The address the crew will drive to', 'Cases show the resident’s own words and, beneath them, the resolved address with coordinates, linked to a map. If the resident corrects the address on the review screen, the record follows the correction.'],
+          ['The conversation is on the case', 'The full intake transcript is preserved on reports filed through the chat, alongside the change log.'],
+          ['Plain names, not internal keys', 'Titles read “Pothole”, never “Intake Pothole”, on both the resident and staff sides.'],
+          ['The alert goes out when the report is filed', 'A department is notified at the moment of filing, rather than when someone happens to open the case.'],
+        ],
+      },
+      {
+        title: 'Known gaps',
+        items: [
+          ['Emergency phone numbers are not filled in', 'The hard stop points to 911 and says “the gas utility’s emergency line” without a number. Real numbers must be added and dialled before any pilot.'],
+          ['Quick-reply chips can linger after a category change', 'If you correct the category, the previous category’s suggested answers may still be on screen. Type your answer rather than tapping one.'],
+          ['Your words are summarised into the record', 'The description stored on the case is the assistant’s summary of what you said, not your sentence verbatim. The full transcript is kept alongside it.'],
+          ['Water reports', 'Peoria’s water is a private utility; those reports currently land with a city desk rather than being referred out.'],
+        ],
+      },
+    ],
+    scope:
+      'Around 22 report categories are configured across Peoria’s departments — potholes, street lights, graffiti, noise, trees, code enforcement and the rest. A report now goes straight to the department that owns it, with no front-desk step in between, and the department signs off on its own portion. Categories, department ownership and desk rosters are all data, so adding or re-pointing one is configuration rather than new code.',
+    coming: [
+      'Outbound text/email notifications (today’s messages are delivered in-app)',
+      'Subscribe to updates on a report, without giving up anonymity',
+      'Short human-readable reference codes instead of long identifiers',
+      'Referring water reports out to the private utility automatically',
+      'A city-side console for editing categories, departments and desks',
+    ],
+  },
+  {
     tag: 'v2 · Private beta',
     date: 'June 2026',
     intro:
