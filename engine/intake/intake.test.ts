@@ -325,6 +325,44 @@ test('stripping a wrap-up claim keeps the acknowledgment around it', async () =>
   assert.match(turn.reply, /\?$/, 'and the next question follows');
 });
 
+test('ready-but-photo-open: "can you share a photo?" becomes the review-screen truth (2026-08-19)', async () => {
+  // Observed on the preview: "One more thing: can you share a photo of the
+  // pothole?" rendered directly above "I've got what I need." Chat cannot
+  // accept a file — the ask is impossible, and the turn contradicts the card.
+  const prior = [
+    { fieldKey: 'location', value: 'Knoxville and Fry' },
+    { fieldKey: 'description', value: 'big pothole in the traffic lane' },
+    { fieldKey: 'hazard', value: true },
+  ];
+  const llm = new ScriptedLLM([
+    JSON.stringify({
+      reply: 'Got it — medium size and risky. One more thing: can you share a photo of the pothole?',
+      extracted: {},
+    }),
+  ]);
+  const turn = await runIntakeTurn(llm, proseForm, [], prior, 'medium, somewhat risky');
+  assert.equal(turn.readyForReview, true, 'attachments never block readiness');
+  assert.doesNotMatch(turn.reply, /share a photo/i, 'the impossible ask is gone');
+  assert.match(turn.reply, /^Got it — medium size and risky\./, 'the read-back survives');
+  assert.match(turn.reply, /add a photo on the review screen/i, 'replaced with the truth');
+});
+
+test('the "why can\'t you take a photo?" question survives — chat handles that one', async () => {
+  const prior = [
+    { fieldKey: 'location', value: 'Knoxville and Fry' },
+    { fieldKey: 'description', value: 'big pothole' },
+    { fieldKey: 'hazard', value: true },
+  ];
+  const llm = new ScriptedLLM([
+    JSON.stringify({
+      reply: 'No problem at all. May I ask why you can’t take a photo?',
+      extracted: {},
+    }),
+  ]);
+  const turn = await runIntakeTurn(llm, proseForm, [], prior, "I can't send a photo");
+  assert.match(turn.reply, /why you can’t take a photo\?/i, 'the reason question is kept');
+});
+
 test('a genuine wrap-up when everything is gathered is left alone', async () => {
   const prior = [
     { fieldKey: 'location', value: 'Knoxville & Sheridan' },

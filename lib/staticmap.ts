@@ -41,19 +41,26 @@ export function parsePins(raw: string | null): MapPoint[] | null {
   return out;
 }
 
-/** The upstream Google Static Maps URL. No center/zoom — the API auto-fits the
- *  markers, which is exactly right for "how far apart are these really?". */
+/** The upstream Google Static Maps URL. With several pins there is no
+ *  center/zoom — the API auto-fits them, which is exactly right for "how far
+ *  apart are these really?". A single pin is a CONFIRMATION map ("yes, that's
+ *  the spot I mean"), so it gets a fixed street-level zoom and no letter. */
 export function staticMapUrl(pins: MapPoint[], key: string): string {
   const url = new URL('https://maps.googleapis.com/maps/api/staticmap');
   url.searchParams.set('size', '600x300');
   url.searchParams.set('scale', '2');
   url.searchParams.set('maptype', 'roadmap');
-  pins.forEach((p, i) => {
-    url.searchParams.append(
-      'markers',
-      `label:${PIN_LETTERS[i] ?? ''}|${p.lat.toFixed(6)},${p.lon.toFixed(6)}`,
-    );
-  });
+  if (pins.length === 1) {
+    url.searchParams.set('zoom', '15');
+    url.searchParams.append('markers', `${pins[0].lat.toFixed(6)},${pins[0].lon.toFixed(6)}`);
+  } else {
+    pins.forEach((p, i) => {
+      url.searchParams.append(
+        'markers',
+        `label:${PIN_LETTERS[i] ?? ''}|${p.lat.toFixed(6)},${p.lon.toFixed(6)}`,
+      );
+    });
+  }
   url.searchParams.set('key', key);
   return url.toString();
 }

@@ -38,6 +38,14 @@ describe('parsePins — strict or nothing', () => {
 });
 
 describe('staticMapUrl — lettered markers, nothing unvalidated', () => {
+  it('a single pin is a confirmation map: fixed street-level zoom, no letter', () => {
+    const url = new URL(staticMapUrl([{ lat: 40.692, lon: -89.589 }], 'test-key'));
+    assert.equal(url.searchParams.get('zoom'), '15');
+    const markers = url.searchParams.getAll('markers');
+    assert.equal(markers.length, 1);
+    assert.doesNotMatch(markers[0], /label:/, 'no letter when there is no choice');
+  });
+
   it('labels markers A, B in candidate order and carries the key', () => {
     const url = new URL(
       staticMapUrl(

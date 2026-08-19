@@ -138,6 +138,32 @@ function questionFor(field: FormField): string {
   return `${field.label.trim().replace(/[?.!\s]+$/, '')}?`;
 }
 
+/** A question asking the resident to hand over a photo/file in chat. Chat
+ *  cannot accept one — files are attached on the review screen. "Why…"
+ *  questions are NOT matched: asking why they can't provide a photo is the
+ *  no-photo-reason flow, which chat genuinely handles. */
+const ATTACHMENT_ASK =
+  /\b(?:share|send|upload|attach|snap|take|provide|include|show)\b[^.?!]*\b(?:photo|picture|image|pic)\b|\b(?:photo|picture|image|pic)\b[^.?!]*\b(?:share|send|upload|attach)\b/i;
+
+/**
+ * The mirror image of the false wrap-up (observed live 2026-08-19): with every
+ * conversational field gathered the engine is READY and the client shows
+ * "I've got what I need — review and finish", but the model simultaneously
+ * asks "can you share a photo?" — a request chat cannot honour, glued to a
+ * claim that nothing more is needed. Replace the impossible ask with the
+ * truth: the photo is attached on the review screen.
+ */
+export function redirectAttachmentAsks(reply: string): string {
+  const sentences = reply.split(/(?<=[.!?…])\s+/);
+  const kept = sentences.filter(
+    (s) => !(s.includes('?') && !/\bwhy\b/i.test(s) && ATTACHMENT_ASK.test(s)),
+  );
+  if (kept.length === sentences.length) return reply;
+  const rest = kept.join(' ').trim();
+  const pointer = 'You can add a photo on the review screen.';
+  return rest ? `${rest} ${pointer}` : pointer;
+}
+
 /** Run one conversational turn. Pure except for the single LLM call. */
 export async function runIntakeTurn(
   llm: LLM,
@@ -203,6 +229,11 @@ export async function runIntakeTurn(
         reply = reply ? `${reply} ${q}` : q;
       }
     }
+  } else if (missing.length > 0) {
+    // Ready, but an attachment is still open — the one moment the model is
+    // tempted to ask for the file in chat while the UI says "I've got what I
+    // need". See redirectAttachmentAsks.
+    reply = redirectAttachmentAsks(reply);
   }
 
   return {

@@ -84,44 +84,49 @@ function CandidateMap({
           }}
         />
       )}
-      {/* Label on its own line, then one full-width choice per line — on a
-          phone the old wrapping row put the label and A together with B
-          orphaned underneath (Rajeev, 2026-08-19). */}
-      <div
-        style={{
-          fontSize: '0.75rem',
-          color: 'var(--muted-2, #7b8794)',
-          margin: '0.4rem 0 0.3rem',
-        }}
-      >
-        Which spot did you mean?
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', maxWidth: 480 }}>
-        {candidates.map((c, i) => {
-          const active = c.matched === selected;
-          return (
-            <button
-              key={c.matched}
-              type="button"
-              onClick={() => onPick(c)}
-              // The formal street name still exists for whoever wants it —
-              // as a hover/long-press title, not as the choice itself.
-              title={c.matched.replace(/, USA$/, '')}
-              className={styles.pinAlt}
-              aria-pressed={active}
-              style={{
-                width: '100%',
-                textAlign: 'left',
-                ...(active
-                  ? { borderColor: 'rgba(56, 189, 248, 0.7)', fontWeight: 600 }
-                  : undefined),
-              }}
-            >
-              {letters[i] ?? '•'} — {c.label ?? c.matched.replace(/, USA$/, '')}
-            </button>
-          );
-        })}
-      </div>
+      {/* A single candidate is a confirmation map — no choice to offer. With
+          several: label on its own line, then one full-width choice per line
+          (on a phone a wrapping row orphaned B under the label; Rajeev,
+          2026-08-19). */}
+      {candidates.length > 1 && (
+        <>
+          <div
+            style={{
+              fontSize: '0.75rem',
+              color: 'var(--muted-2, #7b8794)',
+              margin: '0.4rem 0 0.3rem',
+            }}
+          >
+            Which spot did you mean?
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', maxWidth: 480 }}>
+            {candidates.map((c, i) => {
+              const active = c.matched === selected;
+              return (
+                <button
+                  key={c.matched}
+                  type="button"
+                  onClick={() => onPick(c)}
+                  // The formal street name still exists for whoever wants it —
+                  // as a hover/long-press title, not as the choice itself.
+                  title={c.matched.replace(/, USA$/, '')}
+                  className={styles.pinAlt}
+                  aria-pressed={active}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    ...(active
+                      ? { borderColor: 'rgba(56, 189, 248, 0.7)', fontWeight: 600 }
+                      : undefined),
+                  }}
+                >
+                  {letters[i] ?? '•'} — {c.label ?? c.matched.replace(/, USA$/, '')}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -880,7 +885,10 @@ export default function ReportChat() {
           <span>Location found: <strong>{geo.matched}</strong></span>
         </div>
       )}
-      {phase !== 'review' && geo && geoCandidates.length > 1 && (
+      {phase !== 'review' && geo && geoCandidates.length > 0 && (
+        // One candidate shows as a confirmation map ("yes, that's the spot");
+        // several show the pick-a-pin choice (Rajeev, 2026-08-19: the map is
+        // reassurance the agent got it, not just conflict resolution).
         <CandidateMap
           candidates={geoCandidates}
           selected={geo.matched}
@@ -1200,7 +1208,7 @@ export default function ReportChat() {
                           is where the crew will go.
                         </span>
                       </div>
-                      {geoCandidates.length > 1 && (
+                      {geoCandidates.length > 0 && (
                         <CandidateMap
                           candidates={geoCandidates}
                           selected={pin.matched}
