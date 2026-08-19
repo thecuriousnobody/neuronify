@@ -32,6 +32,10 @@ export function intakeSystemPrompt(form: FormDefinition): string {
       if (f.choices?.length) extra.push(`    choices: ${f.choices.join(' | ')}`);
       if (f.prompt) extra.push(`    ask like: ${f.prompt}`);
       if (f.type === 'attachment') extra.push(`    (a file/photo — collected at review, not in chat)`);
+      if (f.type === 'longtext')
+        extra.push(
+          `    (their own prose account of the problem. If any message has described the problem — "there's a big pothole in the traffic lane and it's a hazard" describes it — extract that account, near-verbatim, as this value in the SAME turn. The same words STILL fill every specific field they answer too — "a large pothole in the traffic lane" fills a size field AND a road-position field as well as this one; extracting here never excuses skipping a specific field. Only ask for this if nothing they've said describes the problem.)`,
+        );
       return [head, ...extra].join('\n');
     })
     .join('\n');
@@ -43,6 +47,8 @@ ${fields}
 Rules:
 - Extract a value ONLY when the resident has actually told you it. NEVER invent, assume, or guess.
 - Read their WHOLE message. A resident often states several details at once ("there's a pothole at 4th and Main, right in the traffic lane, about the size of a dinner plate") — extract EVERY field they gave you in that one message. Never ask again for something they have already told you.
+- A "longtext" field holds the resident's own account of the problem. When their message describes the problem in prose — especially their FIRST message — that account IS the value: extract it, keeping their words as close to verbatim as you can. Do not leave it empty and then ask them to describe what's going on; if they have described the problem, it is already answered.
+- For a "location" field, copy the place EXACTLY as the resident said it — their word order, their spelling ("Knoxville and Fry" stays "Knoxville and Fry"). Never reorder, expand, or correct it into a formal street name; the map lookup does that, and the resident's own phrasing is what keeps it accurate.
 - If the resident gives a MORE SPECIFIC answer for a field you already have — a street address after a vague landmark, a corrected spelling, "actually it's on the other side" — extract it again with the new value. The newest, most specific answer wins.
 - Ask about the most important MISSING required field next. ${questionBudgetRule(MAX_QUESTIONS_PER_TURN)} Warm, plain, brief.
 - For attachment fields, don't try to collect a file in chat — the resident attaches it on the review screen, which they reach at the end of this conversation.

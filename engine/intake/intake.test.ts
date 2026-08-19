@@ -204,6 +204,127 @@ test('a "why no photo" reason given in chat fills the attachment slot (Blake 1.2
   assert.deepEqual(turn.missing, [], 'a recorded reason satisfies the photo requirement');
 });
 
+// ── Rajeev's 2026-08-18 findings (docs/intake-capture-and-location-plan.md) ──
+
+// A form with the production shape: a required prose description alongside the
+// specific fields. The shared `form` above predates the taxonomy build and has
+// no longtext field, which is exactly the field these regressions are about.
+const proseForm: FormDefinition = {
+  id: 'form-pothole-v2',
+  key: 'intake_pothole',
+  title: 'Pothole',
+  city: 'Peoria, IL',
+  version: 1,
+  workflowKey: 'public_works_flow',
+  fields: [
+    { key: 'location', label: 'Where is it?', type: 'location', required: true },
+    { key: 'description', label: 'What’s going on?', type: 'longtext', required: true },
+    { key: 'hazard', label: 'Is it a safety hazard?', type: 'boolean', required: true },
+    { key: 'photo', label: 'A photo', type: 'attachment', required: true, requiresAttachment: true },
+  ],
+};
+
+const RAJEEV_OPENER =
+  "Yeah hi, I want to report a large pothole at Knoxville and Fry. It's right in the traffic lane and it's a safety hazard.";
+
+test('a prose opener the model mined for specifics but not description backstops description with the opener verbatim (Finding 6)', async () => {
+  // Reproduced live 6/6: the model extracts location + hazard and reads the
+  // problem back, but never writes `description` — then asks for it.
+  const llm = new ScriptedLLM([
+    JSON.stringify({
+      reply: 'Thanks — got the location and that it’s a hazard.',
+      extracted: { location: 'Knoxville and Fry', hazard: 'yes' },
+    }),
+  ]);
+  const turn = await runIntakeTurn(llm, proseForm, [], [], RAJEEV_OPENER);
+
+  assert.equal(
+    turn.draft.find((v) => v.fieldKey === 'description')?.value,
+    RAJEEV_OPENER,
+    'the opener itself — verbatim — is the description',
+  );
+  assert.deepEqual(turn.missing, ['photo'], 'description no longer missing');
+  assert.equal(turn.readyForReview, true);
+});
+
+test('an opener that carried no extractable facts does NOT backstop description', async () => {
+  // "pothole" alone describes nothing — asking what's going on is correct here.
+  const llm = new ScriptedLLM([JSON.stringify({ reply: 'Where is it?', extracted: {} })]);
+  const turn = await runIntakeTurn(llm, proseForm, [], [], 'pothole');
+  assert.equal(turn.draft.find((v) => v.fieldKey === 'description'), undefined);
+  assert.ok(turn.missing.includes('description'));
+});
+
+test('mid-conversation answers are never mistaken for a description (backstop is opener-only)', async () => {
+  // "It's at Knoxville and Fry" answers WHERE, and must not become WHAT.
+  const prior = [{ fieldKey: 'hazard', value: true }];
+  const llm = new ScriptedLLM([
+    JSON.stringify({ reply: 'Got it.', extracted: { location: 'Knoxville and Fry' } }),
+  ]);
+  const turn = await runIntakeTurn(llm, proseForm, [], prior, "It's at Knoxville and Fry");
+  assert.equal(turn.draft.find((v) => v.fieldKey === 'description'), undefined);
+  assert.ok(turn.missing.includes('description'));
+});
+
+test('when the model DOES extract a description, the backstop leaves it alone', async () => {
+  const llm = new ScriptedLLM([
+    JSON.stringify({
+      reply: 'Thanks!',
+      extracted: { location: 'Knoxville and Fry', description: 'large pothole in the traffic lane' },
+    }),
+  ]);
+  const turn = await runIntakeTurn(llm, proseForm, [], [], RAJEEV_OPENER);
+  assert.equal(
+    turn.draft.find((v) => v.fieldKey === 'description')?.value,
+    'large pothole in the traffic lane',
+  );
+});
+
+test('a false wrap-up is SUPPRESSED, not decorated — the turn no longer contradicts itself (Finding 6)', async () => {
+  // The observed turn: "You're all set to review and submit your report. One
+  // more thing — What's going on?" — a wrap-up claim followed by a question.
+  const prior = [
+    { fieldKey: 'location', value: 'Knoxville and Fry' },
+    { fieldKey: 'hazard', value: true },
+  ];
+  const llm = new ScriptedLLM([
+    JSON.stringify({ reply: "You're all set to review and submit your report.", extracted: {} }),
+  ]);
+  const turn = await runIntakeTurn(llm, proseForm, [], prior, 'nope');
+  assert.equal(turn.readyForReview, false, 'description still missing — guard must fire');
+  assert.doesNotMatch(turn.reply, /all set|review and submit/i, 'the false claim is gone');
+  assert.equal(turn.reply, 'What’s going on?', 'just the question, no "One more thing —" pasting');
+});
+
+test('a rhetorical question inside a false wrap-up no longer defeats the guard', async () => {
+  // The old probe was reply.includes('?') — "sound good?" satisfied it and the
+  // dead-end wrap-up survived untouched.
+  const prior = [
+    { fieldKey: 'location', value: 'Knoxville and Fry' },
+    { fieldKey: 'hazard', value: true },
+  ];
+  const llm = new ScriptedLLM([
+    JSON.stringify({ reply: "You're all set to review and submit — sound good?", extracted: {} }),
+  ]);
+  const turn = await runIntakeTurn(llm, proseForm, [], prior, 'nope');
+  assert.doesNotMatch(turn.reply, /all set/i);
+  assert.match(turn.reply, /going on\?$/, 'asks for the actually-missing field');
+});
+
+test('stripping a wrap-up claim keeps the acknowledgment around it', async () => {
+  const prior = [{ fieldKey: 'location', value: 'Knoxville and Fry' }];
+  const llm = new ScriptedLLM([
+    JSON.stringify({
+      reply: 'Thanks, that helps. You’re all set to submit.',
+      extracted: {},
+    }),
+  ]);
+  const turn = await runIntakeTurn(llm, proseForm, [], prior, 'ok');
+  assert.match(turn.reply, /^Thanks, that helps\./, 'the honest sentence survives');
+  assert.doesNotMatch(turn.reply, /all set/i);
+  assert.match(turn.reply, /\?$/, 'and the next question follows');
+});
+
 test('a genuine wrap-up when everything is gathered is left alone', async () => {
   const prior = [
     { fieldKey: 'location', value: 'Knoxville & Sheridan' },

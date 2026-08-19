@@ -69,6 +69,17 @@ test('the question budget rule tracks MAX_QUESTIONS_PER_TURN', () => {
   }
 });
 
+test('the description-from-narrative and verbatim-location rules survive (2026-08-18)', () => {
+  // Finding 6: the model mined the opener for specifics and left the prose
+  // field empty, then asked for it. Finding 5: a reordered/re-spelled location
+  // collapses the geocoder's candidates and the wrong corner wins silently.
+  const p = intakeSystemPrompt(form);
+  assert.match(p, /"longtext" field holds the resident[’']s own account/i);
+  assert.match(p, /Do not leave it empty and then ask them to describe/i);
+  assert.match(p, /copy the place EXACTLY as the resident said it/i);
+  assert.match(p, /Never reorder, expand, or correct it/i);
+});
+
 test('the anti-wrap-up rules survive', () => {
   // The engine's false-wrap-up guard is the backstop; this is the front line.
   const p = intakeSystemPrompt(form);

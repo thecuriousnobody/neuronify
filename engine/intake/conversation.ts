@@ -113,6 +113,31 @@ export function missingRequired(form: FormDefinition, draft: FieldValue[]): stri
   return form.fields.filter((f) => f.required && !have.has(f.key)).map((f) => f.key);
 }
 
+/**
+ * Sentences that claim the report is wrapped up or being filed. Only consulted
+ * while required fields are still missing — at that moment any such claim is
+ * false by definition (observed live: "You're all set to review and submit your
+ * report. One more thing — What's going on?" — the turn contradicted itself).
+ */
+const WRAPUP_CLAIM =
+  /\b(all set|good to go|ready to (?:review|submit)|review and submit|that[’']s everything|we[’']re (?:all )?done|i[’'](?:m|ll) (?:be )?(?:send|submit|fil)\w*|(?:sending|filing|submitting) (?:this|it|your)|has been (?:sent|filed|submitted)|report is (?:filed|submitted|complete|done|on its way))\b/i;
+
+/** Drop the sentences that falsely claim wrap-up; keep the rest of the reply. */
+export function stripWrapUpClaims(reply: string): string {
+  return reply
+    .split(/(?<=[.!?…])\s+/)
+    .filter((s) => !WRAPUP_CLAIM.test(s))
+    .join(' ')
+    .trim();
+}
+
+/** The field's label, asked as a bare question — no "One more thing —" prefix,
+ *  no raw label pasting mid-sentence. Labels are authored question-shaped
+ *  ("What's going on?", "Roughly how big?"), so the label IS the question. */
+function questionFor(field: FormField): string {
+  return `${field.label.trim().replace(/[?.!\s]+$/, '')}?`;
+}
+
 /** Run one conversational turn. Pure except for the single LLM call. */
 export async function runIntakeTurn(
   llm: LLM,
@@ -132,24 +157,51 @@ export async function runIntakeTurn(
     suggestions?: unknown;
   }>(raw);
 
-  const draft = mergeDraft(form, priorDraft, parsed.extracted ?? {});
+  let draft = mergeDraft(form, priorDraft, parsed.extracted ?? {});
+
+  // On a fact-dense opener the model reliably extracts the SPECIFIC fields
+  // (location, size, hazard) and leaves the general prose one empty, then asks
+  // "what's going on?" for the very thing it was just told (observed live,
+  // 2026-08-18, and reproduced 6/6 against the real model). Prompts are
+  // advisory, so the guarantee lives here: if the opening message demonstrably
+  // carried facts (something else was extracted from it) but the required
+  // prose field is still empty, the opener itself — the resident's own words,
+  // verbatim — is that field's value.
+  const openerTurn = !priorDraft.some((v) => v.value !== '' && v.value != null);
+  if (openerTurn) {
+    const filled = (key: string) =>
+      draft.some((v) => v.fieldKey === key && v.value !== '' && v.value != null);
+    const prose = form.fields.find((f) => f.required && f.type === 'longtext');
+    const minedOther = draft.some(
+      (v) => v.fieldKey !== prose?.key && v.value !== '' && v.value != null,
+    );
+    if (prose && minedOther && !filled(prose.key)) {
+      draft = mergeDraft(form, draft, { [prose.key]: userMessage.trim() });
+    }
+  }
+
   const missing = missingRequired(form, draft);
   const missingNonAttachment = missing.filter(
     (k) => form.fields.find((f) => f.key === k)?.type !== 'attachment',
   );
 
   // The model must not wrap up while fields are missing — but prompts are
-  // advisory. If it produced a question-free reply mid-collection (observed
-  // live: "I'm sending this to our street repair team right now." with three
-  // fields still empty — the resident waits for a review card that never
-  // comes), deterministically append a question for the next missing field.
+  // advisory (observed live: "I'm sending this to our street repair team right
+  // now." with three fields still empty — the resident waits for a review card
+  // that never comes). The guard must FIRE, and the turn it produces must be
+  // coherent: first suppress any false wrap-up claim, then — unless the reply
+  // already ends with a question — ask for the next missing field. Ends-with,
+  // not contains: a rhetorical "sound good?" mid-claim must not defeat it.
   let reply = String(parsed.reply ?? '').trim();
   const ready = missingNonAttachment.length === 0;
-  if (!ready && !reply.includes('?')) {
-    const next = form.fields.find((f) => missingNonAttachment.includes(f.key));
-    if (next) {
-      const q = `One more thing — ${next.label.replace(/\?+\s*$/, '')}?`;
-      reply = reply ? `${reply} ${q}` : q;
+  if (!ready) {
+    reply = stripWrapUpClaims(reply);
+    if (!/\?\s*$/.test(reply)) {
+      const next = form.fields.find((f) => missingNonAttachment.includes(f.key));
+      if (next) {
+        const q = questionFor(next);
+        reply = reply ? `${reply} ${q}` : q;
+      }
     }
   }
 
