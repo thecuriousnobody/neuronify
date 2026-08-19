@@ -46,6 +46,17 @@ Also addressed:
   wires" — are never interrupted. Both directions are tested; a warning that
   fires on hydrants is worse than none.
 
+**One more, found by my own voice testing after your run — the wrong-corner
+problem.** Peoria has two Knoxville/Frye intersections, 5.8 miles apart, and
+depending on word order and spelling the map lookup would silently pick one and
+never mention the other — a crew could drive to the wrong side of town. Now,
+when more than one real spot matches what you said, you get a small map with
+lettered pins and the choices are named by what's actually there — "near
+Kroger" vs "near McDonald's" — never street names like "N Frye Rd vs E Frye
+Ave" that nobody standing at the corner can resolve. Tap the right pin and
+that's where the crew goes. Worth trying: report something at "Frye and
+Knoxville" and watch it ask.
+
 **Three things I decided not to build, so you know they weren't missed:**
 
 1. **A pre-submit summary (5.1)** — the review screen already is one, and you
@@ -67,9 +78,11 @@ Also addressed:
 - **Quick-reply chips can linger after you change the category.** Correct a
   pothole to graffiti and the pothole suggestions may still be on screen. Type
   your answer rather than tapping one. Fix is queued.
-- **The description on the case is a summary of what you said, not your exact
-  sentence.** The verbatim transcript is kept alongside it, but I'm not happy
-  with this and it's on the list.
+- **The description on the case is now your own words when you describe the
+  problem up front** — the opening sentence lands on the record as you said it.
+  A description pieced together from scattered answers across the conversation
+  can still read as a summary; the verbatim transcript is always kept alongside
+  it either way.
 - **Water reports** land with a city desk rather than being referred out to
   Illinois American.
 
