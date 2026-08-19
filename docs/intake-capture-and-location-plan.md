@@ -240,3 +240,22 @@ to N Frye Rd → review screen shows the same picker inside the location field,
 selection preserved, "this is where the crew will go" tracking it. The same
 run also showed Fix 1 live: the bot recited all four opener facts and asked
 only for size — no "What's going on?" re-ask.
+
+## Rajeev's phone pass on the preview (2026-08-19) — three findings, all fixed
+
+The stable test link **`neuronify-preview.vercel.app`** was set up at his
+request (Vercel alias; re-point after every push — see the deploy-preference
+memory). His voice run on it confirmed the opener capture and the corner
+picker working end to end, and found:
+
+1. **Picker layout** — on a phone the wrapping row orphaned choice B under
+   the label. Now: label on its own line, one full-width choice per line.
+2. **The map only appeared on a conflict.** His point: it should also confirm
+   a clean capture. Now every resolved location shows a map — one candidate
+   renders as a street-level confirmation pin (no letter, no picker row).
+3. **"Can you share a photo of the pothole?" directly above "I've got what I
+   need."** — the mirror image of Fix 2's contradiction. Chat cannot accept a
+   file, so when the engine is ready and only an attachment remains,
+   `redirectAttachmentAsks` (engine/intake/conversation.ts) replaces the
+   impossible ask with "You can add a photo on the review screen." The
+   "why can't you take one?" question survives — chat handles that flow.
