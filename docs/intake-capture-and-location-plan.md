@@ -259,3 +259,15 @@ picker working end to end, and found:
    `redirectAttachmentAsks` (engine/intake/conversation.ts) replaces the
    impossible ask with "You can add a photo on the review screen." The
    "why can't you take one?" question survives — chat handles that flow.
+4. **A mistranscribed corner pinned a whole road with full confidence** —
+   "Knoxville and Wall, near War Memorial" (speech-to-text slip) pinned the
+   middle of W War Memorial Dr. Decision (Rajeev's): do NOT chase
+   transcription accuracy — the visible map + cheap correction is the
+   systemic defense. The one principled addition: **street-grade honesty**.
+   Google's result `types` distinguish a `route` match from a real corner;
+   when the resident's phrase was corner-shaped but the pin is only
+   street-grade, the location card and the review screen say so plainly and
+   point at the fix ("say the cross-streets again" / "edit the address").
+   Flag computed in lib/geocode.ts (`isStreetGrade` + `cornerShaped`),
+   stripped when the resident only named a street — a road pinned as a road
+   is faithful and gets no warning.

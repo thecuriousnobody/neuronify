@@ -14,6 +14,8 @@ export interface GeoCandidate {
   matched: string;
   lat: number;
   lon: number;
+  /** Street-grade match for a corner-shaped phrase — see lib/geocode.ts. */
+  approximate?: boolean;
 }
 
 export interface LabeledCandidate extends GeoCandidate {

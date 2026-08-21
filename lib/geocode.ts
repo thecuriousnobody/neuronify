@@ -13,6 +13,12 @@ export interface GeoMatch {
   matched: string;
   lat: number;
   lon: number;
+  /** True when the resident named a CORNER but this match is only
+   *  street-grade — the pin sits at an arbitrary point along a whole road,
+   *  shown with the same confidence as a real corner match. Observed live
+   *  (2026-08-19): "Knoxville and Wall, near War Memorial" pinned the middle
+   *  of W War Memorial Dr. The UI owes the resident that honesty. */
+  approximate?: boolean;
 }
 
 const CENSUS_URL = 'https://geocoding.geo.census.gov/geocoder/locations/onelineaddress';
@@ -75,6 +81,20 @@ const AREA_TYPES = new Set([
 export function isPinnablePlace(types: string[] | undefined): boolean {
   if (!types || types.length === 0) return true; // unknown shape — don't over-reject
   return !types.some((t) => AREA_TYPES.has(t));
+}
+
+/** A `route` match is a whole street, not a spot — pinnable (crews drive on
+ *  streets) but only street-grade. The middle case between a real point
+ *  (intersection / street_address / premise) and the area shrugs above. */
+export function isStreetGrade(types: string[] | undefined): boolean {
+  return Boolean(types?.includes('route'));
+}
+
+/** Did the resident's phrase name a CORNER ("A and B", with or without a
+ *  trailing ", landmark" clause)? Only then is a street-grade match a missed
+ *  corner worth flagging — a plain street name pinned as a street is faithful. */
+export function cornerShaped(cleaned: string): boolean {
+  return /\s(?:and|&)\s/i.test(cleaned.split(',')[0]);
 }
 
 /** In-city, deduped, capped — the shape both providers' raw results reduce to.
@@ -142,7 +162,10 @@ export async function geocodeCandidates(rawLocation: string, city: string): Prom
   const perVariant = await Promise.all(
     variants.map((v) => (process.env.GOOGLE_MAPS_API_KEY ? geocodeGoogle(v) : geocodeCensus(v))),
   );
-  return pickCandidates(perVariant.flat(), city);
+  const picked = pickCandidates(perVariant.flat(), city);
+  // `approximate` only means something when a corner was asked for; a plain
+  // street name matched as a street is exactly what they said.
+  return cornerShaped(cleaned) ? picked : picked.map(({ approximate: _drop, ...rest }) => rest);
 }
 
 export async function geocodeApprox(rawLocation: string, city: string): Promise<GeoMatch | null> {
@@ -185,7 +208,12 @@ async function geocodeGoogle(address: string): Promise<GeoMatch[]> {
           console.warn(`[geocode] area-level match dropped: "${m.formatted_address}" (${(m.types ?? []).join(',')})`);
           return null;
         }
-        return { matched: m.formatted_address, lat: loc.lat, lon: loc.lng } as GeoMatch;
+        return {
+          matched: m.formatted_address,
+          lat: loc.lat,
+          lon: loc.lng,
+          ...(isStreetGrade(m?.types) ? { approximate: true } : {}),
+        } as GeoMatch;
       })
       .filter(Boolean) as GeoMatch[];
   } catch {

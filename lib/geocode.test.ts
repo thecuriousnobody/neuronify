@@ -5,7 +5,7 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeLocation, matchInCity, pickCandidates, isPinnablePlace, intersectionVariants } from './geocode';
+import { normalizeLocation, matchInCity, pickCandidates, isPinnablePlace, intersectionVariants, isStreetGrade, cornerShaped } from './geocode';
 
 describe('normalizeLocation — descriptors out, street names intact', () => {
   it('strips "north side median" (the Rome trigger) but keeps the intersection', () => {
@@ -151,5 +151,28 @@ describe('intersectionVariants — both word orders survive to the geocoder', ()
       'Pioneer and University',
       'University and Pioneer',
     ]);
+  });
+});
+
+describe('street-grade honesty — a corner asked, a road answered', () => {
+  // Observed live (2026-08-19): "Knoxville and Wall, near War Memorial"
+  // pinned the middle of W War Memorial Dr — a `route` match shown with the
+  // same confidence as a real corner. The flag drives the UI's honesty line.
+
+  it('isStreetGrade: route is street-grade; points and shrugs are not', () => {
+    assert.equal(isStreetGrade(['route']), true);
+    assert.equal(isStreetGrade(['intersection']), false);
+    assert.equal(isStreetGrade(['street_address']), false);
+    assert.equal(isStreetGrade(['premise']), false);
+    assert.equal(isStreetGrade(undefined), false);
+    assert.equal(isStreetGrade([]), false);
+  });
+
+  it('cornerShaped: "A and B" is a corner, with or without a trailing landmark clause', () => {
+    assert.equal(cornerShaped('Knoxville and Wall'), true);
+    assert.equal(cornerShaped('Knoxville and Wall, War Memorial'), true, 'landmark clause after the comma');
+    assert.equal(cornerShaped('Fry & Knoxville'), true);
+    assert.equal(cornerShaped('W War Memorial Dr'), false, 'a plain street is not a corner');
+    assert.equal(cornerShaped('1200 E Glen Ave'), false);
   });
 });

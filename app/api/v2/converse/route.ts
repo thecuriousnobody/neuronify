@@ -124,9 +124,15 @@ export async function POST(req: Request) {
     const newLoc = locField ? turn.draft.find((v) => v.fieldKey === locField.key)?.value : null;
     const priorLoc = locField ? draft.find((v) => v.fieldKey === locField.key)?.value : null;
     let geo:
-      | { fieldKey: string; matched: string; lat: number; lon: number; for: string }
+      | { fieldKey: string; matched: string; lat: number; lon: number; for: string; approximate?: boolean }
       | null = null;
-    let geoCandidates: { matched: string; lat: number; lon: number; label?: string }[] = [];
+    let geoCandidates: {
+      matched: string;
+      lat: number;
+      lon: number;
+      label?: string;
+      approximate?: boolean;
+    }[] = [];
     if (locField && newLoc && newLoc !== priorLoc) {
       // Top candidate auto-pins (zero friction); the rest ride along so the
       // resident can tap "not this spot?" instead of typing corrections.

@@ -49,7 +49,15 @@ type Value = {
 const GREETING = 'Hi — I can help you report something to the city. In a sentence or two, what’s going on?';
 const pretty = (k: string) => k.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
-type Candidate = { matched: string; lat: number; lon: number; label?: string };
+type Candidate = {
+  matched: string;
+  lat: number;
+  lon: number;
+  label?: string;
+  /** Street-grade match for a corner-shaped phrase — the pin marks a whole
+   *  road, not the corner the resident named. The UI says so honestly. */
+  approximate?: boolean;
+};
 
 /**
  * The ambiguous-location picker: candidate pins on a small map, each with a
@@ -172,7 +180,8 @@ export default function ReportChat() {
   // the review screen lets the resident edit that text, and a pin that no longer
   // matches what the field says is a wrong pin, not a stale one.
   const [geo, setGeo] = useState<
-    { fieldKey: string; matched: string; lat: number; lon: number; for: string } | null
+    | { fieldKey: string; matched: string; lat: number; lon: number; for: string; approximate?: boolean }
+    | null
   >(null);
   // `photos` holds the stored Blob URL (what a submission will record);
   // `photoPreviews` holds a local object URL, because the Blob store is private
@@ -192,9 +201,7 @@ export default function ReportChat() {
   // Alternate geocoder pins — the top one auto-pins; these let the resident
   // tap the spot they meant instead of typing a correction. `label` is the
   // resident-friendly anchor the server attached ("near Northwoods Mall").
-  const [geoCandidates, setGeoCandidates] = useState<
-    { matched: string; lat: number; lon: number; label?: string }[]
-  >([]);
+  const [geoCandidates, setGeoCandidates] = useState<Candidate[]>([]);
   // A re-pin is in flight for an address edited on the review screen.
   const [repinning, setRepinning] = useState(false);
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
@@ -220,6 +227,7 @@ export default function ReportChat() {
     lat: number;
     lon: number;
     for: string;
+    approximate?: boolean;
   } | null> | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -411,7 +419,14 @@ export default function ReportChat() {
   //
   // Returns the pin that now applies (or null) rather than relying on the state
   // it sets, so finish() can act on the answer without racing a re-render.
-  type Pin = { fieldKey: string; matched: string; lat: number; lon: number; for: string };
+  type Pin = {
+    fieldKey: string;
+    matched: string;
+    lat: number;
+    lon: number;
+    for: string;
+    approximate?: boolean;
+  };
 
   /** Hands finish() the re-pin a blur already started, instead of letting it
    *  fire a competing second lookup — which the geocode rate limiter would
@@ -441,11 +456,7 @@ export default function ReportChat() {
         body: JSON.stringify({ location }),
       });
       const data = await res.json();
-      const candidates: { matched: string; lat: number; lon: number }[] = Array.isArray(
-        data?.candidates,
-      )
-        ? data.candidates
-        : [];
+      const candidates: Candidate[] = Array.isArray(data?.candidates) ? data.candidates : [];
       const next: Pin | null = candidates[0] ? { fieldKey, ...candidates[0], for: location } : null;
       setGeo(next);
       setGeoCandidates(candidates);
@@ -948,6 +959,27 @@ export default function ReportChat() {
                         Location found: <strong>{geo.matched.replace(/, USA$/, '')}</strong>
                       </span>
                     </div>
+                    {geo.approximate && (
+                      // Street-grade honesty: the resident named a corner, the
+                      // geocoder only found the road. Same confidence pin,
+                      // very different meaning — say so, and say the fix.
+                      <div
+                        style={{
+                          margin: '0 0 0.25rem',
+                          fontSize: '0.78rem',
+                          opacity: 0.8,
+                          display: 'flex',
+                          gap: '0.4rem',
+                          alignItems: 'baseline',
+                        }}
+                      >
+                        <span>◎</span>
+                        <span>
+                          Couldn’t find that exact corner — this pins the whole street. If it’s
+                          not the right spot, say the cross-streets again.
+                        </span>
+                      </div>
+                    )}
                     {geoCandidates.length > 0 && (
                       <CandidateMap
                         candidates={geoCandidates}
@@ -961,6 +993,7 @@ export default function ReportChat() {
                             lat: c.lat,
                             lon: c.lon,
                             for: geo.for,
+                            approximate: c.approximate,
                           })
                         }
                       />
@@ -1229,6 +1262,15 @@ export default function ReportChat() {
                           is where the crew will go.
                         </span>
                       </div>
+                      {pin.approximate && (
+                        <div className={styles.pinNote}>
+                          <span className={styles.pinMark}>◎</span>
+                          <span>
+                            Couldn’t find that exact corner — this pins the whole street. Edit the
+                            address above if the spot is off.
+                          </span>
+                        </div>
+                      )}
                       {geoCandidates.length > 0 && (
                         <CandidateMap
                           candidates={geoCandidates}
@@ -1236,7 +1278,14 @@ export default function ReportChat() {
                           // Same query, different result — the text the
                           // pin was resolved from hasn't changed.
                           onPick={(c) =>
-                            setGeo({ fieldKey: f.key, matched: c.matched, lat: c.lat, lon: c.lon, for: pin.for })
+                            setGeo({
+                              fieldKey: f.key,
+                              matched: c.matched,
+                              lat: c.lat,
+                              lon: c.lon,
+                              for: pin.for,
+                              approximate: c.approximate,
+                            })
                           }
                         />
                       )}
